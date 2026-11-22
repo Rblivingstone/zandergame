@@ -1,0 +1,16 @@
+# Unity
+unity/ZanderHoopShrines/[Ll]ibrary/
+unity/ZanderHoopShrines/[Tt]emp/
+unity/ZanderHoopShrines/[Oo]bj/
+unity/ZanderHoopShrines/[Bb]uild/
+unity/ZanderHoopShrines/[Bb]uilds/
+unity/ZanderHoopShrines/[Ll]ogs/
+unity/ZanderHoopShrines/[Uu]ser[Ss]ettings/
+unity/ZanderHoopShrines/*.csproj
+unity/ZanderHoopShrines/*.sln
+unity/ZanderHoopShrines/.vs/
+unity/ZanderHoopShrines/.idea/
+# Blender
+*.blend1
+blender/output/*.png
+__pycache__/
