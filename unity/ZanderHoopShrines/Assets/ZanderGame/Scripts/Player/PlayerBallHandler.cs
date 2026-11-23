@@ -22,6 +22,9 @@ namespace ZanderGame
         public Vector3? AimPoint { get; private set; }
         public Hoop DunkHoop { get; private set; }
         public Basketball PlateBallNearby { get; private set; }
+
+        /// <summary>Holding a ball near a hoop that only accepts bank shots (shows a tip).</summary>
+        public Hoop BankShotHoopNearby { get; private set; }
         public string AimName
         {
             get
@@ -67,6 +70,10 @@ namespace ZanderGame
             if (Dunking) return;
             UpdateAim();
             UpdateDunk();
+            BankShotHoopNearby = null;
+            foreach (var h in Hoop.All)
+                if (h != null && h.RequiresRebound && Flat(h.RimCenter - transform.position) < 8f)
+                    BankShotHoopNearby = h;
 
             if (Controls.DunkDown && !_pc.IsStunned && !Charging)
             {
