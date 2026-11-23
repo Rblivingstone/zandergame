@@ -384,7 +384,8 @@ def export_fbx(path, objects=None, animated=False):
         primary_bone_axis="Y",
         secondary_bone_axis="X",
         bake_anim=animated,
-        path_mode="AUTO",
+        path_mode="COPY",
+        embed_textures=True,
     )
     if animated:
         kwargs.update(

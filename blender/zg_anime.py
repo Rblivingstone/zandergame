@@ -233,6 +233,7 @@ def hair_lock(name, p0, p1, p2, width, thickness, mat, bone="head", segs=8, ring
     # cap the base
     faces.append(tuple(reversed(range(ring))))
     obj = _mesh(name, verts, faces, mat, bone)
+    lock_uvs(obj, segs, ring)
     return obj
 
 
@@ -303,3 +304,49 @@ def fix_normals(obj, projector):
         bm.free()
         me.update()
     return obj
+
+
+# --------------------------------------------------------------------------- #
+# Painted textures + UVs
+# --------------------------------------------------------------------------- #
+def tex_material(name, image_path, roughness=0.6):
+    """A material whose base colour is a painted texture (exported into the FBX)."""
+    key = "ZG_" + name
+    mat = bpy.data.materials.get(key) or bpy.data.materials.new(key)
+    mat.use_nodes = True
+    nt = mat.node_tree
+    bsdf = nt.nodes.get("Principled BSDF")
+    bsdf.inputs["Roughness"].default_value = roughness
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = bpy.data.images.load(image_path, check_existing=True)
+    nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+    mat.diffuse_color = (1, 1, 1, 1)
+    return mat
+
+
+def set_uvs(obj, fn, name="UVMap", wrap_u=False):
+    """fn(vertex_co) -> (u, v). With wrap_u, faces crossing the u seam are fixed."""
+    me = obj.data
+    uv = me.uv_layers.get(name) or me.uv_layers.new(name=name)
+    for poly in me.polygons:
+        uvs = [fn(me.vertices[me.loops[li].vertex_index].co) for li in poly.loop_indices]
+        if wrap_u:
+            us = [u for u, _ in uvs]
+            if max(us) - min(us) > 0.5:
+                uvs = [(u + 1.0 if u < 0.5 else u, v) for u, v in uvs]
+        for li, (u, v) in zip(poly.loop_indices, uvs):
+            uv.data[li].uv = (u, v)
+
+
+def lock_uvs(obj, segs, ring):
+    """UVs for a hair_lock: u around (mirrored, so no seam), v root -> tip."""
+    def f(idx):
+        if idx >= segs * ring:
+            return (0.5, 1.0)
+        i, j = divmod(idx, ring)
+        return (1.0 - abs(2.0 * j / ring - 1.0), i / segs)
+    me = obj.data
+    uv = me.uv_layers.get("UVMap") or me.uv_layers.new(name="UVMap")
+    for poly in me.polygons:
+        for li in poly.loop_indices:
+            uv.data[li].uv = f(me.loops[li].vertex_index)

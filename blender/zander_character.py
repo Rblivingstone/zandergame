@@ -30,6 +30,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import zg_common as zg  # noqa: E402
 import zg_anime as za  # noqa: E402
+import zg_paint as zp  # noqa: E402
+import zg_bake as zb  # noqa: E402
+import numpy as np  # noqa: E402
 from mathutils import Vector  # noqa: E402
 
 # --------------------------------------------------------------------------- #
@@ -62,6 +65,85 @@ HEAD_C = Vector((0.0, 0.0, 1.07))
 HEAD_RX, HEAD_RY, HEAD_RZ = 0.24, 0.232, 0.25
 
 
+def smoothstep(e0, e1, x):
+    t = min(1.0, max(0.0, (x - e0) / (e1 - e0)))
+    return t * t * (3 - 2 * t)
+
+
+_DECALS = None
+
+
+def paint_body_3d(P, N, W):
+    """Colour of Zander's body at 3D points P (normals N, arm weights W):
+    skin, a white tank top with blue trims, navy shorts with stripes, socks."""
+    global _DECALS
+    if _DECALS is None:
+        _DECALS = zp.zander_decals()
+    hx = zb.hexrgb
+    x, y, z = P[:, 0], P[:, 1], P[:, 2]
+    ax = np.abs(x)
+    # 1 = arm/hand. Strict: the torso skin near the armpit is partly bound to the
+    # arm bones too, and must still get the jersey.
+    armw = sum(W.values()) if W else np.zeros(len(P))
+    arm = np.clip((armw - 0.78) * 6, 0, 1) * np.clip((np.abs(P[:, 0]) - 0.115) * 60, 0, 1)
+    arm = np.maximum(arm, np.clip((armw - 0.9) * 10, 0, 1) * (P[:, 2] < 0.6))
+    body = 1 - arm
+    soft = zb.soft
+    col = np.tile(hx(SKIN), (len(P), 1))
+
+    # ---- shorts: hips + thighs between hem and waist ----
+    shorts = soft(z - 0.262) * soft(0.476 - z) * body
+    col = zb.lay(col, shorts, hx("#1B2E5E"))
+    col = zb.lay(col, shorts * soft(z - 0.455), hx("#24387A"))                       # waistband
+    col = zb.lay(col, soft(z - 0.262) * soft(0.278 - z) * body, hx("#2A4590"))      # hem band
+    outward = N[:, 0] * np.sign(x)                                                    # outer thigh
+    col = zb.lay(col, shorts * soft(outward - 0.86, 0.03) * soft(0.455 - z), hx("#FAFAFA"))
+    col = zb.lay(col, shorts * soft(outward - 0.95, 0.02) * soft(0.455 - z), hx("#1F63E0"))
+
+    # ---- tank top ----
+    zs = [0.64, 0.655, 0.685, 0.725, 0.77, 0.82]
+    xs = [0.3, 0.152, 0.118, 0.092, 0.078, 0.078]
+    x_arm = np.interp(z, zs, xs)                     # arm-hole edge (same front & back)
+    v_edge = 0.034 * np.clip((z - 0.66) / 0.108, 0, 2)   # front V-neck half width
+    d_arm = x_arm - ax                               # > 0 inside the jersey
+    d_vneck = np.where(y < 0, ax - v_edge, 1.0)      # > 0 outside the V
+    d_vneck = np.where((y < 0) & (z < 0.66), 1.0, d_vneck)
+    scoop = (x / 0.034) ** 2 + ((z - 0.77) / 0.055) ** 2
+    d_scoop = np.where(y >= 0, (np.sqrt(scoop) - 1) * 0.034, 1.0)
+    d_neck = np.minimum(d_vneck, d_scoop)
+    d_neck = np.minimum(d_neck, np.where(z > 0.766, ax - 0.034, 1.0))   # straps leave the neck bare
+    jersey = soft(z - 0.476) * soft(0.81 - z) * soft(d_arm) * soft(d_neck) * body
+    col = zb.lay(col, jersey, hx("#FAFAFA"))
+    trim = jersey * np.maximum(soft(0.012 - d_arm) * soft(z - 0.645), soft(0.012 - d_neck))
+    col = zb.lay(col, trim, hx("#1F63E0"))
+    col = zb.lay(col, jersey * soft(0.5 - z), hx("#1F63E0"))                        # hem band
+
+    # ---- printed decals (8, name, folds, drawstrings) on front / back ----
+    front_d, back_d = _DECALS
+    facing_f = soft(-N[:, 1] - 0.3, 0.1) * (jersey + shorts).clip(0, 1)
+    facing_b = soft(N[:, 1] - 0.3, 0.1) * (jersey + shorts).clip(0, 1)
+    for dec, face, mirror in ((front_d, facing_f, False), (back_d, facing_b, True)):
+        s = zb.sample_decal(dec, -x if mirror else x, z, zp.DECAL_X0, zp.DECAL_X1, zp.DECAL_Z0, zp.DECAL_Z1)
+        a = s[:, 3] * face
+        col = col * (1 - a[:, None]) + s[:, :3] * a[:, None]
+
+    # ---- socks ----
+    sock = soft(z - 0.075) * soft(0.15 - z) * body
+    col = zb.lay(col, sock, hx("#FFFFFF"))
+    col = zb.lay(col, sock * soft(z - 0.128) * soft(0.138 - z), hx("#FFC83D"))
+    return col
+
+
+def face_uv(co):
+    """Front planar projection for the painted face; the back of the head maps
+    to plain skin at the texture's edge so the face never appears twice."""
+    u = 0.5 + co.x / zp.FACE_U_M
+    v = 0.5 + (co.z - zp.FACE_CZ) / zp.FACE_V_M
+    if co.y > 0:
+        u = 0.5 + math.copysign(0.49, co.x)
+    return (min(max(u, 0.01), 0.99), min(max(v, 0.01), 0.99))
+
+
 def build_body(rig):
     M = zg.material
     m = dict(
@@ -73,9 +155,14 @@ def build_body(rig):
         tongue=M("Tongue", TONGUE, 0.5), jersey=M("Jersey", JERSEY, 0.65), trim=M("JerseyTrim", TRIM, 0.6),
         shorts=M("Shorts", SHORTS, 0.7), shorts_trim=M("ShortsTrim", SHORTS_TRIM, 0.6), shoe=M("Shoe", SHOE, 0.45),
         sole=M("Sole", SOLE, 0.5), sock=M("Sock", SOCK, 0.8))
+    # hand-painted textures (eyes, mouth, blush, hair strands, jersey art)
+    m["face"] = za.tex_material("Face", zp.paint_zander_face(SKIN))
     parts = []
 
     # ------------------------------------------------------------ body skin --
+    # One continuous smooth body. Skin AND clothes are painted onto it in 3D
+    # (see paint_body_3d), so the tank top wraps around the torso, under the
+    # arms and over the shoulders with clean drawn edges.
     J, E = [], []
     RS = 1.3  # skin modifier + subdivision shrink the radii; compensate
 
@@ -102,48 +189,25 @@ def build_body(rig):
         calf = j((sx * 0.068, 0.006, 0.16), (0.045, 0.047))
         an = j((sx * 0.07, 0.004, 0.08), (0.036, 0.036))
         E += [(pelvis, hip), (hip, kn), (kn, calf), (calf, an)]
-    body = za.skin_body("Zander_Body_Skin", J, E, m["skin"], root=pelvis)
-    for k in ("jersey", "shorts", "sock"):
-        body.data.materials.append(m[k])           # slots 1, 2, 3
-
-    def region(c):
-        ax = abs(c.x)
-        if 0.475 <= c.z < 0.75 and ax < (0.128 if c.z < 0.67 else 0.098):
-            return 1                                # tank-top jersey
-        if 0.255 <= c.z < 0.475 and ax < 0.14:
-            return 2                                # shorts
-        if 0.075 <= c.z < 0.15:
-            return 3                                # socks
-        return 0
-    puff = {1: 0.005, 2: 0.012, 3: 0.004}
-    moved = {}
-    for poly in body.data.polygons:
-        r = region(poly.center)
-        poly.material_index = r
-        if r:
-            for vi in poly.vertices:
-                moved[vi] = max(moved.get(vi, 0.0), puff[r])
-    for vi, d in moved.items():
-        v = body.data.vertices[vi]
-        extra = 0.0
-        v.co += v.normal * (d + extra)
-    body.data.update()
+    body = za.skin_body("Zander_Body_Skin", J, E, m["skin"], root=pelvis, subdiv=3)
     za.auto_weights(body, rig)
+    zb.unwrap(body)
+    arm_groups = [g.name for g in body.vertex_groups if "arm" in g.name or "hand" in g.name]
+    tex = zb.bake(body, 2048, paint_body_3d, "zander_body.png", groups=arm_groups)
+    body.data.materials.clear()
+    body.data.materials.append(za.tex_material("Body", tex, 0.65))
+    # puff the clothes out a touch (smoothly, so there are no steps)
+    gidx = {g.index: g.name for g in body.vertex_groups}
+    for v in body.data.vertices:
+        armw = sum(g.weight for g in v.groups if gidx[g.group] in arm_groups)
+        if armw > 0.5:
+            continue
+        z = v.co.z
+        d = 0.011 * smoothstep(0.255, 0.3, z) * (1 - smoothstep(0.47, 0.5, z))
+        d += 0.005 * smoothstep(0.47, 0.5, z) * (1 - smoothstep(0.66, 0.74, z))
+        v.co += v.normal * d
+    body.data.update()
     parts.append(body)
-
-    # jersey + shorts trims and the big number 8
-    pf = za.Projector(body)
-    pb = za.Projector(body, from_back=True)
-    vneck = [(-0.06, 0.745), (-0.03, 0.70), (0.0, 0.675), (0.03, 0.70), (0.06, 0.745)]
-    parts.append(za.fix_normals(pf.strip("vneck", vneck, 0.016, m["trim"], 0.006, "chest"), pf))
-    hem = [(x / 20.0 * 0.28 - 0.14, 0.485) for x in range(21)]
-    parts.append(za.fix_normals(pf.strip("hem", hem, 0.014, m["trim"], 0.009, "spine"), pf))
-    parts.append(za.fix_normals(pb.strip("hem_b", hem, 0.014, m["trim"], 0.009, "spine"), pb))
-    for proj, nm, sc in ((pf, "eight_f", 1.0), (pb, "eight_b", 1.2)):
-        for k, (cz, rx, rz) in enumerate(((0.62, 0.022, 0.019), (0.573, 0.027, 0.024))):
-            ring = za.ellipse(0, 0.62 + (cz - 0.62) * sc, rx * sc, rz * sc, 20)
-            parts.append(za.fix_normals(proj.strip(nm + str(k), ring + [ring[0]], 0.011 * sc, m["trim"], 0.007, "chest"),
-                                        proj))
 
     # --------------------------------------------------------- big sneakers --
     for sx, side in ((1, "L"), (-1, "R")):
@@ -164,142 +228,161 @@ def build_body(rig):
     parts.append(zg.torus("wristband", (-0.184, 0.0, 0.47), 0.035, 0.012, rot=(0, -6, 0), mat=m["trim"], bone="forearm.R"))
 
     # ------------------------------------------------------------------ head --
-    head = za.sculpt_head("head", HEAD_C, HEAD_RX, HEAD_RY, HEAD_RZ, m["skin"], jaw=0.2, chin=0.06)
+    head = za.sculpt_head("head", HEAD_C, HEAD_RX, HEAD_RY, HEAD_RZ, m["face"], jaw=0.2, chin=0.06)
     za.rigid(head, "head")
+    za.set_uvs(head, face_uv)
     parts.append(head)
     for sx in (1, -1):
         parts.append(zg.sphere("ear", (sx * 0.232, 0.015, 1.0), 0.05, scale=(0.45, 0.75, 1.05), rot=(0, 0, sx * -10),
                                mat=m["skin"], bone="head"))
         parts.append(zg.sphere("ear_in", (sx * 0.245, 0.01, 1.0), 0.03, scale=(0.3, 0.6, 0.85), mat=m["skin_shade"], bone="head"))
-    parts += build_face(head, m)
     parts += build_hair(head, m)
 
     for p in parts:
         if not p.vertex_groups:
             za.rigid(p, "head")
-    # trims and numbers printed on the clothes follow the body's smooth weights
-    for p in parts:
-        if p.name.startswith(("vneck", "hem", "eight")):
-            p.vertex_groups.clear()
-            za.auto_weights(p, rig, only={"hips", "spine", "chest", "neck"})
     return zg.join(parts, "Zander_Body")
 
 
-def build_face(head, m):
-    pr = za.Projector(head)
-    out = []
-
-    def add(o):
-        if o is not None:
-            out.append(za.fix_normals(o, pr))
-
-    ey = 1.005
-    for sx in (1, -1):
-        ex = sx * 0.095
-        ix = ex - sx * 0.004
-        # big tall anime eyes
-        add(pr.shape("eye_white", za.ellipse(ex, ey, 0.058, 0.068, 40), m["white"], 0.002, "head"))
-        add(pr.shape("iris", za.ellipse(ix, ey - 0.006, 0.047, 0.06, 40), m["iris"], 0.004, "head"))
-        add(pr.shape("iris_band", za.ellipse(ix, ey + 0.022, 0.044, 0.03, 32), m["iris_dark"], 0.005, "head"))
-        add(pr.shape("iris_glow", za.ellipse(ix, ey - 0.036, 0.03, 0.018, 24), m["iris_light"], 0.005, "head"))
-        add(pr.shape("pupil", za.ellipse(ix, ey - 0.004, 0.022, 0.03, 24), m["pupil"], 0.006, "head"))
-        add(pr.shape("shine_big", za.ellipse(ix + sx * 0.018, ey + 0.022, 0.016, 0.019, 20), m["white"], 0.0075, "head"))
-        add(pr.shape("shine_small", za.ellipse(ix - sx * 0.02, ey - 0.03, 0.008, 0.008, 14), m["white"], 0.0075, "head"))
-        # thick upper lash line + outer flick, lower lash hint
-        a0, a1 = (math.radians(165), math.radians(12)) if sx > 0 else (math.radians(15), math.radians(168))
-        lash = za.arc(ex, ey + 0.004, 0.062, 0.07, a0, a1, 16)
-        widths = [0.006 + 0.008 * math.sin(math.pi * i / 15) for i in range(16)]
-        if sx > 0:
-            lash.append((ex + 0.07, ey + 0.03))
-            widths.append(0.003)
-        else:
-            lash.insert(0, (ex - 0.07, ey + 0.03))
-            widths.insert(0, 0.003)
-        add(pr.strip("lash_upper", lash, widths, m["lash"], 0.007, "head"))
-        lo = za.arc(ex, ey - 0.004, 0.052, 0.066, math.radians(-35 if sx > 0 else -145),
-                    math.radians(-70 if sx > 0 else -110), 6)
-        add(pr.strip("lash_lower", lo, 0.004, m["lash"], 0.0035, "head"))
-        # short thick brows (mostly peeking out under the hair)
-        brow = [(ex - sx * 0.035, 1.112), (ex, 1.12), (ex + sx * 0.035, 1.113)]
-        add(pr.strip("brow", brow, [0.012, 0.014, 0.008], m["brow"], 0.003, "head"))
-        add(pr.shape("blush", za.ellipse(sx * 0.15, 0.935, 0.032, 0.014, 20), m["blush"], 0.0018, "head"))
-    # tiny nose
-    add(pr.shape("nose", za.ellipse(0, 0.952, 0.006, 0.005, 10), m["skin_shade"], 0.002, "head"))
-    # open happy smile (D shape) with a little tongue
-    mouth = [(-0.034, 0.912)] + za.arc(0, 0.912, 0.034, 0.03, math.radians(185), math.radians(355), 14) + [(0.034, 0.912)]
-    add(pr.shape("mouth", mouth, m["mouth"], 0.002, "head"))
-    add(pr.shape("tongue", za.ellipse(0.004, 0.892, 0.017, 0.009, 16), m["tongue"], 0.003, "head"))
-    return out
+def paint_hair_3d(P, N, W):
+    """Hair colour painted across the whole hairdo in 3D: darker roots and
+    undersides, light tips, and one anime 'halo' highlight band around the head."""
+    hx = zb.hexrgb
+    c = np.array(HEAD_C)
+    rel = P - c
+    r = np.linalg.norm(rel / np.array([HEAD_RX, HEAD_RY, HEAD_RZ]), axis=1)
+    out = np.clip((r - 1.05) / 0.55, 0, 1)                      # 0 at the scalp, 1 at the tips
+    col = hx("#E2B04A")[None, :] * (1 - out[:, None]) + hx("#F9DA78")[None, :] * out[:, None]
+    tip = np.clip((out - 0.55) / 0.45, 0, 1)[:, None]
+    col = col * (1 - tip) + hx("#FFEDB0")[None, :] * tip
+    # undersides in shadow
+    under = np.clip(-N[:, 2] * 1.6, 0, 1)[:, None] * 0.35
+    col = col * (1 - under) + hx("#C99434")[None, :] * under
+    # halo highlight: a zig-zag band at a fixed elevation around the head
+    elev = np.degrees(np.arcsin(np.clip(rel[:, 2] / np.maximum(np.linalg.norm(rel, axis=1), 1e-6), -1, 1)))
+    azim = np.arctan2(rel[:, 0], -rel[:, 1])
+    centre = 40 + 1.8 * np.sin(azim * 11)
+    band = zb.soft(2.2 - np.abs(elev - centre), 1.6) * (0.55 + 0.45 * np.cos(azim * 3) ** 2)
+    facing = np.clip((N * (rel / np.maximum(np.linalg.norm(rel, axis=1, keepdims=True), 1e-6))).sum(1) * 2 - 0.4, 0, 1)
+    halo = band * facing * 0.7
+    col = col * (1 - halo[:, None]) + hx("#FFF8DC")[None, :] * halo[:, None]
+    return col
 
 
 def build_hair(head, m):
+    """Chibi-anime faux hawk built from ~90 small, flat locks packed in layers
+    over a soft hair mass, all flowing up toward the ridge and back. The whole
+    hairdo is then painted in 3D as one piece (gradient + halo highlight)."""
+    import random
+    rnd = random.Random(8)
     c = HEAD_C
-    out = []
+    parts = []
 
     def nd(co):
         d = co - c
         return Vector((d.x / HEAD_RX, d.y / HEAD_RY, d.z / HEAD_RZ))
 
-    def shell(name, scale, keep, mat):
-        o = head.copy()
-        o.data = head.data.copy()
-        o.name = name
-        zg.link(o)
-        o.vertex_groups.clear()
-        za.deform(o, lambda v: c + (v - c) * scale)
-        # tuck vertices outside the hairline just under the skin instead of deleting
-        # them, so the hairline stays a smooth curve rather than jagged steps
-        for v in o.data.vertices:
-            if not keep(nd(c + (v.co - c) / scale)):
-                v.co = c + (v.co - c) / scale * 0.985
-        o.data.update()
-        o.data.materials.clear()
-        o.data.materials.append(mat)
-        return za.rigid(o, "head")
-
-    def cap_keep(d):
+    def hairline(d):
         front = max(0.0, -d.y)
         back = max(0.0, d.y)
-        limit = 0.05 + 0.33 * front - 0.6 * back
-        if abs(d.x) > 0.72 and -0.5 < d.z < 0.15 and d.y < 0.4:
-            return False   # ears
-        return d.z > limit
+        if abs(d.x) > 0.7 and -0.55 < d.z < 0.2 and d.y < 0.45:
+            return False   # keep the ears clear
+        return d.z > 0.02 + 0.36 * front - 0.62 * back
 
-    out.append(shell("hair_cap", 1.04, cap_keep, m["hair_side"]))
-    out.append(shell("hair_volume", 1.1, lambda d: d.z > 0.3 - 0.25 * max(0.0, d.y) and abs(d.x) < 0.78 and d.y > -0.75,
-                     m["hair"]))
+    # the soft base mass
+    o = head.copy()
+    o.data = head.data.copy()
+    o.name = "hair_mass"
+    zg.link(o)
+    o.vertex_groups.clear()
+    def hair_amount(d):
+        front = max(0.0, -d.y)
+        back = max(0.0, d.y)
+        g = d.z - (0.02 + 0.36 * front - 0.62 * back)
+        ear = max(abs(d.x) - 0.7, 0.0) * max(0.0, 0.2 - d.z) * max(0.0, d.z + 0.55) * (1.0 if d.y < 0.45 else 0.0)
+        t = min(1.0, max(0.0, (g + 0.04) / 0.14)) * (1.0 - min(1.0, ear * 40))
+        return t * t * (3 - 2 * t)
+    for v in o.data.vertices:
+        k = 0.985 + (1.1 - 0.985) * hair_amount(nd(v.co))   # smooth hairline (no steps)
+        v.co = c + (v.co - c) * k + Vector((0, 0, 0.012 * (k - 0.985) / 0.115))
+    o.data.update()
+    parts.append(o)
 
-    def on_skull(a, x_off, lift=1.06):
+    def scalp(a, x_off):
         d = Vector((x_off, -math.sin(a), math.cos(a)))
         d.normalize()
-        return c + Vector((d.x * HEAD_RX, d.y * HEAD_RY, d.z * HEAD_RZ)) * lift, d
+        return d
 
-    def lock(base, nrm, sweep, L, w, t, mat, curl=0.0, inward=0.0, x_off=0.0):
-        p0 = base - nrm * 0.03
-        p1 = base + (nrm * 0.7 + sweep * 0.3).normalized() * L * 0.5 + Vector((-x_off * inward * L * 0.4, 0, 0))
-        p2 = base + (nrm * 0.3 + sweep).normalized() * L + Vector((-x_off * inward * L, 0, curl * L))
-        out.append(za.hair_lock("lock", p0, p1, p2, w, t, mat, flat_axis=(0, 1, 0), segs=8, ring=8, tip_power=1.1))
+    def flow(a, x_off):
+        """Faux-hawk flow: top locks rise toward the centre ridge and back,
+        side locks sweep back, front locks flick up."""
+        ax = abs(x_off)
+        sgn = 1 if x_off >= 0 else -1
+        up = max(0.0, 1.0 - ax * 1.1)
+        if a > 0.85:                                   # front row: up and a little forward
+            return Vector((-sgn * 0.25 * ax, -0.35, 1.0)).normalized()
+        return Vector((-sgn * 0.45 * up + sgn * 0.12 * (1 - up), 0.55 + 0.4 * (1 - up), up * 1.0 - 0.35 * (1 - up))).normalized()
 
-    # 1) the faux-hawk ridge: tall chunky spikes, the front one flicks up + forward
-    ridge = [(1.02, 0.14, (0, -1.0, 0.55)), (0.8, 0.17, (0, -0.6, 0.8)), (0.55, 0.18, (0, -0.15, 1.0)),
-             (0.28, 0.17, (0, 0.3, 1.0)), (0.0, 0.16, (0, 0.6, 0.85)), (-0.3, 0.14, (0, 0.85, 0.55)),
-             (-0.62, 0.12, (0, 0.95, 0.2)), (-0.95, 0.1, (0, 0.8, -0.35))]
-    for i, (a, L, sw) in enumerate(ridge):
-        base, nrm = on_skull(a, 0.0)
-        lock(base, nrm, Vector(sw).normalized(), L, 0.125, 0.06, m["hair_light"] if i % 2 == 0 else m["hair"])
-    # 2) inner rows lean in toward the ridge (that's what makes it a faux hawk)
+    rows = 11
+    for ri in range(rows):
+        a = 1.0 - ri * (2.25 / (rows - 1))             # front (1.0) -> back (-1.25)
+        n_cols = 9
+        for ci in range(n_cols):
+            x_off = -0.95 + ci * (1.9 / (n_cols - 1)) + (0.1 if ri % 2 else 0.0)
+            if abs(x_off) > 1.0:
+                continue
+            d = scalp(a, x_off)
+            base = c + Vector((d.x * HEAD_RX, d.y * HEAD_RY, d.z * HEAD_RZ)) * 1.07
+            if not hairline(nd(base)):
+                continue
+            nrm = d
+            sw = flow(a, x_off)
+            centre = max(0.0, 1.0 - abs(x_off) * 1.15)
+            L = (0.055 + 0.105 * centre) * rnd.uniform(0.8, 1.2)
+            if a < -0.6:
+                L *= 0.8
+            w = 0.07 * rnd.uniform(0.85, 1.15)
+            p0 = base - nrm * 0.03
+            p1 = base + (nrm * 0.55 + sw * 0.45).normalized() * L * 0.5
+            p2 = base + (nrm * 0.15 + sw).normalized() * L + Vector((0, 0, 0.25 * L * centre))
+            side = sw.cross(nrm)
+            if side.length < 1e-3:
+                side = Vector((1, 0, 0))
+            parts.append(za.hair_lock("lock", p0, p1, p2, w, w * 0.22, m["hair"], flat_axis=tuple(side.normalized()),
+                                      segs=7, ring=8, tip_power=1.5))
+    # short side locks framing the face above the ears
     for sx in (1, -1):
-        for a, L in ((0.95, 0.12), (0.7, 0.14), (0.45, 0.14), (0.2, 0.14), (-0.05, 0.13), (-0.3, 0.12),
-                     (-0.55, 0.11), (-0.8, 0.1), (-1.05, 0.08)):
-            x_off = sx * 0.4
-            base, nrm = on_skull(a, x_off)
-            sw = Vector((0, -0.5 if a > 0.6 else 0.7, 0.9)).normalized()
-            lock(base, nrm, sw, L, 0.1, 0.045, m["hair"], inward=1.0, x_off=x_off)
-    # 4) a little fringe over the forehead
-    for x_off, sw in ((-0.35, (0.25, -1.0, -0.5)), (0.3, (-0.2, -1.0, -0.6)), (0.0, (0.05, -1.0, -0.35))):
-        base, nrm = on_skull(1.12, x_off, 1.05)
-        lock(base, nrm, Vector(sw).normalized(), 0.09, 0.07, 0.025, m["hair"])
-    return out
+        for a in (0.75, 0.42, 0.1, -0.22, -0.55, -0.85):
+            d = scalp(a, sx * 1.15)
+            base = c + Vector((d.x * HEAD_RX, d.y * HEAD_RY, d.z * HEAD_RZ)) * 1.06
+            if not hairline(nd(base)):
+                continue
+            sw = Vector((sx * 0.25, 0.6, -0.75)).normalized()
+            L = 0.075 * rnd.uniform(0.85, 1.15)
+            p0 = base - d * 0.03
+            p1 = base + (d * 0.6 + sw * 0.4).normalized() * L * 0.5
+            p2 = base + (d * 0.2 + sw).normalized() * L
+            parts.append(za.hair_lock("side", p0, p1, p2, 0.07, 0.016, m["hair"], flat_axis=(0, 1, 0), segs=6, ring=8,
+                                      tip_power=1.5))
+    # bangs over the forehead
+    for x_off, sx in ((-0.42, 0.3), (-0.14, 0.12), (0.16, -0.1), (0.44, -0.3)):
+        d = scalp(1.08, x_off)
+        base = c + Vector((d.x * HEAD_RX, d.y * HEAD_RY, d.z * HEAD_RZ)) * 1.06
+        sw = Vector((sx, -0.55, -0.8)).normalized()
+        L = 0.1
+        p0 = base - d * 0.03
+        p1 = base + (d * 0.6 + sw * 0.4).normalized() * L * 0.5
+        p2 = base + sw * L + Vector((0, -0.01, 0.015))
+        parts.append(za.hair_lock("bang", p0, p1, p2, 0.08, 0.018, m["hair"], flat_axis=(1, 0, 0), segs=7, ring=8,
+                                  tip_power=1.5))
+    hair = zg.join(parts, "Hair")
+    hair.data.materials.clear()
+    zb.unwrap(hair, margin=0.003)
+    hair.data.materials.append(za.tex_material("HairPainted", zb.bake(hair, 1024, paint_hair_3d, "zander_hair.png"), 0.45))
+    for p in hair.data.polygons:
+        p.material_index = 0
+    hair.vertex_groups.clear()
+    return [za.rigid(hair, "head")]
 
 
 BONES = [
