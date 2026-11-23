@@ -207,8 +207,7 @@ namespace ZanderGame
             Build.Prim(PrimitiveType.Cylinder, "CapTop", g, new Vector3(0, -drop - 0.05f, 0), new Vector3(0.5f, 0.06f, 0.5f), dark, false);
             Build.Prim(PrimitiveType.Sphere, "Glow", g, new Vector3(0, -drop - 0.4f, 0), new Vector3(0.55f, 0.65f, 0.55f), glow, false);
             Build.Prim(PrimitiveType.Cylinder, "CapBottom", g, new Vector3(0, -drop - 0.75f, 0), new Vector3(0.36f, 0.05f, 0.36f), dark, false);
-            var l = Build.PointLight(g, new Vector3(0, -drop - 0.6f, 0), Mat.Hex(hex), 14f, 1.25f);
-            l.renderMode = LightRenderMode.ForcePixel;
+            Build.PointLight(g, new Vector3(0, -drop - 0.6f, 0), Mat.Hex(hex), 12f, 1.0f);
         }
 
         /// <summary>A hanging cloth banner (alpha-cut painted texture) on a wall. yaw: direction the banner faces.</summary>

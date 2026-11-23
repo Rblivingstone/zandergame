@@ -98,7 +98,7 @@ namespace ZanderGame
             var tm = go.AddComponent<TextMesh>();
             tm.text = text;
             tm.font = Compat.DefaultFont();
-            if (tm.font != null) go.GetComponent<MeshRenderer>().sharedMaterial = tm.font.material;
+            if (tm.font != null) go.GetComponent<MeshRenderer>().sharedMaterial = TextMaterial(tm.font);
             tm.fontSize = 64;
             tm.characterSize = size / 10f;
             tm.anchor = TextAnchor.MiddleCenter;
@@ -106,6 +106,18 @@ namespace ZanderGame
             tm.color = color;
             if (billboard) go.AddComponent<Billboard>();
             return tm;
+        }
+
+        static Material _textMat;
+
+        /// <summary>Depth-tested, one-sided material for 3D text (see ZanderText3D.shader).</summary>
+        static Material TextMaterial(Font font)
+        {
+            if (_textMat != null) return _textMat;
+            var sh = Shader.Find("ZanderGame/Text3D");
+            if (sh == null) return font.material;
+            _textMat = new Material(sh) { name = "ZG_Text3D", mainTexture = font.material.mainTexture };
+            return _textMat;
         }
 
         public static Light PointLight(Transform parent, Vector3 pos, Color c, float range, float intensity)

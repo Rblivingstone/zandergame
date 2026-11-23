@@ -1,0 +1,3 @@
+ZG_Body=zander_body
+ZG_Face=zander_face
+ZG_HairPainted=zander_hair

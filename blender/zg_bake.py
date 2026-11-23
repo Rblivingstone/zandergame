@@ -129,6 +129,21 @@ def bake(obj, size, paint_fn, name, groups=(), supersample=2, dilate=6, attr_nam
         filled = filled | grow
     # downsample (anti-aliasing)
     img = img.reshape(size, supersample, size, supersample, 3).mean((1, 3))
+    low = filled.reshape(size, supersample, size, supersample).all((1, 3))
+    # flood the remaining gutters with the nearest island colour, so mip-maps in
+    # the game never blend in black and no dark seams appear at a distance
+    for _ in range(256):
+        if low.all():
+            break
+        acc = np.zeros_like(img)
+        cnt = np.zeros((size, size), dtype=np.float32)
+        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            sh_f = np.roll(low, (dy, dx), (0, 1))
+            acc += np.roll(img, (dy, dx), (0, 1)) * sh_f[..., None]
+            cnt += sh_f
+        grow = (~low) & (cnt > 0)
+        img[grow] = acc[grow] / cnt[grow][:, None]
+        low = low | grow
     os.makedirs(TEX_DIR, exist_ok=True)
     path = os.path.join(TEX_DIR, name)
     rgba = np.concatenate([np.clip(img, 0, 1), np.ones((size, size, 1), np.float32)], 2)

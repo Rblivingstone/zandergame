@@ -14,7 +14,6 @@ namespace ZanderGame
             var model = ModelLibrary.Spawn("Zander", parent, Vector3.zero, 0f, PlayerController.Height, 0.0032f);
             if (model != null)
             {
-                ModelLibrary.FaceByLeftHand(model);
                 return model.transform;
             }
             return BuildPrimitiveZander(parent);
@@ -25,7 +24,6 @@ namespace ZanderGame
             var model = ModelLibrary.Spawn("KingSwat", parent, Vector3.zero, 0f, height, 0.0032f);
             if (model != null)
             {
-                ModelLibrary.FaceByLeftHand(model);
                 return model.transform;
             }
             return BuildPrimitiveBoss(parent, height);

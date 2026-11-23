@@ -85,10 +85,18 @@ Shader "ZanderGame/Toon"
         {
             half ndl = dot(s.Normal, lightDir);
             half lit = smoothstep(_ShadeStep - _Softness, _ShadeStep + _Softness, ndl);
-            lit *= smoothstep(0.25, 0.6, atten);
-            half3 shade = lerp(_ShadowColor.rgb, half3(1,1,1), lit);
             half4 c;
+        #ifdef UNITY_PASS_FORWARDADD
+            // extra lights (lanterns, lamps): a cel-shaded pool of light that fades with
+            // distance (atten). No shadow-tint fill here, or every light would brighten
+            // everything in its range.
+            c.rgb = s.Albedo * _LightColor0.rgb * lit * atten;
+        #else
+            // main light (sun): two-tone cel shading with a coloured shadow side
+            half shadow = smoothstep(0.25, 0.6, atten);
+            half3 shade = lerp(_ShadowColor.rgb, half3(1, 1, 1), lit * shadow);
             c.rgb = s.Albedo * _LightColor0.rgb * shade;
+        #endif
             c.a = s.Alpha;
             return c;
         }

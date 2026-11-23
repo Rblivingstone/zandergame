@@ -37,6 +37,17 @@ namespace ZanderGame
             _oneShotUntil = Time.time + (name == "Celebrate" ? 2.0f : 0.6f);
         }
 
+        int _facingChecks;
+
+        void LateUpdate()
+        {
+            // a few frames after the animation starts, make sure the model faces forward
+            if (_pc == null || _facingChecks >= 3) return;
+            if (Time.frameCount % 5 != 0) return;
+            _facingChecks++;
+            if (ModelLibrary.FaceByFeet(_pc.Visual.gameObject, "Shoe")) _facingChecks = 3;
+        }
+
         void Update()
         {
             if (_pc == null) return;

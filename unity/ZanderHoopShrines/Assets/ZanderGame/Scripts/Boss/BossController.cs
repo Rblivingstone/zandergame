@@ -250,6 +250,15 @@ namespace ZanderGame
             if (d.sqrMagnitude > 0.001f) _face = Quaternion.LookRotation(d);
         }
 
+        int _facingChecks;
+
+        void LateUpdate()
+        {
+            if (_facingChecks >= 3 || Time.frameCount % 5 != 0) return;
+            _facingChecks++;
+            if (ModelLibrary.FaceByFeet(Visual.gameObject, "BossBoot")) _facingChecks = 3;
+        }
+
         // ------------------------------------------------------- per frame --
         void Update()
         {

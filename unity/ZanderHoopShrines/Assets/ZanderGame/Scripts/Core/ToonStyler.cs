@@ -28,9 +28,44 @@ namespace ZanderGame
             }
         }
 
-        public static void Apply(GameObject root, float outlineWidth)
+        static readonly Dictionary<string, Dictionary<string, string>> Manifests =
+            new Dictionary<string, Dictionary<string, string>>();
+
+        /// <summary>Material -> painted texture list written by the Blender export
+        /// (Resources/Models/[model]_textures.txt).</summary>
+        static Dictionary<string, string> Manifest(string model)
+        {
+            if (string.IsNullOrEmpty(model)) return null;
+            if (Manifests.TryGetValue(model, out var map)) return map;
+            map = new Dictionary<string, string>();
+            var txt = Resources.Load<TextAsset>("Models/" + model + "_textures");
+            if (txt != null)
+                foreach (var line in txt.text.Split('\n'))
+                {
+                    int eq = line.IndexOf('=');
+                    if (eq > 0) map[line.Substring(0, eq).Trim()] = line.Substring(eq + 1).Trim();
+                }
+            Manifests[model] = map;
+            return map;
+        }
+
+        static Texture2D PaintedTexture(Dictionary<string, string> map, string materialName)
+        {
+            if (map == null || map.Count == 0) return null;
+            string n = materialName.Replace(" (Instance)", "").Trim();
+            if (!map.TryGetValue(n, out var tex))
+            {
+                // Unity sometimes appends suffixes; fall back to a prefix match
+                foreach (var kv in map)
+                    if (n.StartsWith(kv.Key)) { tex = kv.Value; break; }
+            }
+            return tex != null ? Resources.Load<Texture2D>("Textures/Models/" + tex) : null;
+        }
+
+        public static void Apply(GameObject root, float outlineWidth, string modelName = null)
         {
             if (Toon == null) return;
+            _currentMap = Manifest(modelName);
             foreach (var r in root.GetComponentsInChildren<Renderer>())
             {
                 var mats = r.sharedMaterials;
@@ -40,6 +75,8 @@ namespace ZanderGame
             }
         }
 
+        static Dictionary<string, string> _currentMap;
+
         static Material Convert(Material src, float outline)
         {
             int key = src.GetInstanceID() * 31 + Mathf.RoundToInt(outline * 100000);
@@ -47,7 +84,13 @@ namespace ZanderGame
             m = new Material(Toon) { name = src.name };
             if (src.HasProperty("_Color")) m.SetColor("_Color", src.color);
             else if (src.HasProperty("_BaseColor")) m.SetColor("_Color", src.GetColor("_BaseColor"));
-            if (src.HasProperty("_MainTex") && src.mainTexture != null) m.mainTexture = src.mainTexture;
+            var painted = PaintedTexture(_currentMap, src.name);
+            if (painted != null)
+            {
+                m.mainTexture = painted;
+                m.SetColor("_Color", Color.white);   // the painting carries all the colour
+            }
+            else if (src.HasProperty("_MainTex") && src.mainTexture != null) m.mainTexture = src.mainTexture;
             if (src.HasProperty("_EmissionColor"))
             {
                 var e = src.GetColor("_EmissionColor");

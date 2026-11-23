@@ -70,7 +70,7 @@ namespace ZanderGame.EditorTools
         static void Setup(bool verbose)
         {
             EnsureInputHandling();
-            foreach (var s in new[] { "Standard", "ZanderGame/Toon", "Sprites/Default", "Particles/Standard Unlit" })
+            foreach (var s in new[] { "Standard", "ZanderGame/Toon", "ZanderGame/Text3D", "Sprites/Default", "Particles/Standard Unlit" })
                 AlwaysInclude(s);
             EnsureScene();
             ConfigureIcon();

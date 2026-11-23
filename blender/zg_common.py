@@ -384,8 +384,7 @@ def export_fbx(path, objects=None, animated=False):
         primary_bone_axis="Y",
         secondary_bone_axis="X",
         bake_anim=animated,
-        path_mode="COPY",
-        embed_textures=True,
+        path_mode="STRIP",          # textures ship as separate PNGs (see write_texture_manifest)
     )
     if animated:
         kwargs.update(
@@ -397,6 +396,41 @@ def export_fbx(path, objects=None, animated=False):
         )
     bpy.ops.export_scene.fbx(**kwargs)
     print("[ZG] exported", path)
+    write_texture_manifest(path, objs)
+
+
+def write_texture_manifest(fbx_path, objs):
+    """Unity doesn't reliably hook up textures embedded in an FBX, so every
+    painted texture is ALSO copied to Resources/Textures/Models and listed in
+    Resources/Models/<Model>_textures.txt as "MaterialName=texture". The game's
+    ToonStyler uses this list to put the right texture on each material."""
+    import shutil
+    models_dir = os.path.dirname(fbx_path)
+    tex_dir = os.path.join(os.path.dirname(models_dir), "Textures", "Models")
+    os.makedirs(tex_dir, exist_ok=True)
+    lines = []
+    seen = set()
+    for o in objs:
+        if o.type != "MESH":
+            continue
+        for slot in o.material_slots:
+            m = slot.material
+            if m is None or m.name in seen or not m.use_nodes:
+                continue
+            seen.add(m.name)
+            for n in m.node_tree.nodes:
+                if n.type == "TEX_IMAGE" and n.image is not None:
+                    src = bpy.path.abspath(n.image.filepath)
+                    if not os.path.exists(src):
+                        continue
+                    base = os.path.splitext(os.path.basename(src))[0]
+                    shutil.copyfile(src, os.path.join(tex_dir, base + ".png"))
+                    lines.append("%s=%s" % (m.name, base))
+                    break
+    name = os.path.splitext(os.path.basename(fbx_path))[0]
+    with open(os.path.join(models_dir, name + "_textures.txt"), "w") as f:
+        f.write("\n".join(lines) + "\n")
+    print("[ZG] texture manifest:", len(lines), "textures")
 
 
 def save_blend(path):

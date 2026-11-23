@@ -47,7 +47,7 @@ namespace ZanderGame
             inst.transform.localPosition = Vector3.zero;
             inst.transform.localRotation = Quaternion.Euler(0, ModelYawOffset, 0) * inst.transform.localRotation;
             Build.StripColliders(inst);
-            ToonStyler.Apply(inst, outline);
+            ToonStyler.Apply(inst, outline, name);
 
             if (targetHeight > 0f)
             {
@@ -118,6 +118,53 @@ namespace ZanderGame
             if (hand == null) return;
             float x = container.transform.InverseTransformPoint(hand.position).x;
             if (Mathf.Abs(x) > 0.02f && x > 0f) Flip(container, "left hand on the wrong side");
+        }
+
+        /// <summary>
+        /// Characters: after the animation is playing, the shoes' toes must point the
+        /// way the character walks (container +Z). Measures the skinned shoe vertices
+        /// in their animated pose, so it can't be fooled by bind poses or axis tricks.
+        /// Returns true if the model was turned around.
+        /// </summary>
+        public static bool FaceByFeet(GameObject container, string shoeToken, string leftFoot = "foot.L",
+            string rightFoot = "foot.R")
+        {
+            if (container == null) return false;
+            var fl = FindDeep(container.transform, leftFoot);
+            var fr = FindDeep(container.transform, rightFoot);
+            if (fl == null || fr == null) return false;
+            Vector3 ankles = (fl.position + fr.position) * 0.5f;
+            Vector3 sum = Vector3.zero;
+            int count = 0;
+            foreach (var smr in container.GetComponentsInChildren<SkinnedMeshRenderer>())
+            {
+                var mats = smr.sharedMaterials;
+                var baked = new Mesh();
+                smr.BakeMesh(baked);
+                var verts = baked.vertices;
+                var m = smr.transform.localToWorldMatrix;
+                // BakeMesh output is in the renderer's local space without its scale
+                var noScale = Matrix4x4.TRS(smr.transform.position, smr.transform.rotation, Vector3.one);
+                for (int i = 0; i < mats.Length && i < baked.subMeshCount; i++)
+                {
+                    if (mats[i] == null || !mats[i].name.Contains(shoeToken)) continue;
+                    foreach (int vi in baked.GetTriangles(i))
+                    {
+                        sum += noScale.MultiplyPoint3x4(verts[vi]);
+                        count++;
+                    }
+                }
+                Object.Destroy(baked);
+            }
+            if (count == 0) return false;
+            Vector3 toes = sum / count - ankles;
+            toes = container.transform.InverseTransformDirection(toes);
+            if (toes.z < -0.005f)
+            {
+                Flip(container, "toes pointed backwards");
+                return true;
+            }
+            return false;
         }
 
         public static Bounds WorldBounds(GameObject go)
