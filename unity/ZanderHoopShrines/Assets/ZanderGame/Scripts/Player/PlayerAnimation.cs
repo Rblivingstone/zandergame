@@ -77,14 +77,14 @@ namespace ZanderGame
             }
             _rig.LegL.localRotation = Quaternion.Euler(legSwing, 0, 0);
             _rig.LegR.localRotation = Quaternion.Euler(-legSwing, 0, 0);
-            _rig.ArmL.localRotation = Quaternion.Euler(-armSwing, 0, -8);
+            _rig.ArmL.localRotation = Quaternion.Euler(-armSwing, 0, -8);  // overridden below when handling the ball
+            // Zander is left-handed: the LEFT arm shoots and dribbles
+            _rig.ArmR.localRotation = Quaternion.Euler(armSwing, 0, 8);
             if (charging || shooting || cheering)
-                _rig.ArmR.localRotation = Quaternion.Euler(-160, 0, 10);
+                _rig.ArmL.localRotation = Quaternion.Euler(-160, 0, -10);
             else if (ball && _pc.Grounded)
-                _rig.ArmR.localRotation = Quaternion.Euler(-35 - 20 * Mathf.Abs(Mathf.Cos(_t * Mathf.PI * 2)), 0, 12);
-            else
-                _rig.ArmR.localRotation = Quaternion.Euler(armSwing, 0, 8);
-            if (cheering || charging) _rig.ArmL.localRotation = Quaternion.Euler(-160, 0, -10);
+                _rig.ArmL.localRotation = Quaternion.Euler(-35 - 20 * Mathf.Abs(Mathf.Cos(_t * Mathf.PI * 2)), 0, -12);
+            if (cheering || charging) _rig.ArmR.localRotation = Quaternion.Euler(-160, 0, 10);
             float bob = _pc.Grounded ? Mathf.Abs(Mathf.Sin(ph)) * 0.04f * run + Mathf.Sin(_t * 2f) * 0.01f : 0f;
             _rig.Body.localPosition = new Vector3(0, bob, 0);
             _rig.Body.localRotation = Quaternion.Euler(8f * run, 0, 0);

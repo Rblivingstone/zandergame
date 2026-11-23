@@ -229,7 +229,7 @@ def build_body(rig):
         parts.append(zg.sphere("toecap." + side, (x, -0.12, 0.04), 1.0, scale=(0.048, 0.038, 0.03), mat=m["sole"], bone=bone))
         parts.append(zg.sphere("swoosh." + side, (x + sx * 0.06, -0.035, 0.065), 1.0, scale=(0.007, 0.05, 0.014),
                                rot=(-15, 0, 0), mat=m["sole"], bone=bone))
-    parts.append(zg.torus("wristband", (-0.184, 0.0, 0.47), 0.035, 0.012, rot=(0, -6, 0), mat=m["trim"], bone="forearm.R"))
+    parts.append(zg.torus("wristband", (0.184, 0.0, 0.47), 0.035, 0.012, rot=(0, 6, 0), mat=m["trim"], bone="forearm.L"))
 
     # ------------------------------------------------------------------ head --
     head = za.sculpt_head("head", HEAD_C, HEAD_RX, HEAD_RY, HEAD_RZ, m["face"], jaw=0.2, chin=0.06)
@@ -238,9 +238,9 @@ def build_body(rig):
     for v in head.data.vertices:
         if v.co.y >= 0:
             continue
-        d2 = (v.co.x / 0.016) ** 2 + ((v.co.z - 0.957) / 0.02) ** 2
+        d2 = (v.co.x / 0.019) ** 2 + ((v.co.z - 0.958) / 0.022) ** 2
         bridge = (v.co.x / 0.012) ** 2 + ((v.co.z - 0.985) / 0.03) ** 2
-        v.co.y -= 0.016 * math.exp(-d2) + 0.005 * math.exp(-bridge)
+        v.co.y -= 0.03 * math.exp(-d2) + 0.009 * math.exp(-bridge)
     head.data.update()
     za.set_uvs(head, face_uv)
     parts.append(head)
@@ -429,6 +429,16 @@ for _sx, _n in ((1, "L"), (-1, "R")):
 #   up-pointing bones:   lean forward = +X
 #   shin knee bend = +X, forearm bend (hand forward) = -X
 # --------------------------------------------------------------------------- #
+def lefty(rot):
+    """Zander is LEFT-handed: mirror a right-handed pose (swap .L/.R bones and
+    flip the Y/Z rotations)."""
+    out = {}
+    for k, (rx, ry, rz) in rot.items():
+        k2 = k[:-2] + (".L" if k.endswith(".R") else ".R") if k.endswith((".L", ".R")) else k
+        out[k2] = (rx, -ry, -rz)
+    return out
+
+
 def arms_rest(spread=8):
     return {"upper_arm.L": (0, 0, -spread), "upper_arm.R": (0, 0, spread)}
 
@@ -464,7 +474,7 @@ def _run_pose(phase, with_ball=False):
     else:
         r.update({"upper_arm.R": (-50 * s, 0, 10), "forearm.R": (-70, 0, 0)})
     loc = {"hips": (0, 0, 0.03 * abs(c) - 0.02)}
-    return r, loc
+    return (lefty(r) if with_ball else r), loc
 
 
 def anim_run(rig, name="Run", with_ball=False):
@@ -491,7 +501,7 @@ def anim_dribble(rig):
             "upper_arm.R": (-30 + 12 * bounce, 0, 20), "forearm.R": (-35 - 30 * bounce, 0, 0),
             "hand.R": (-30 * bounce, 0, 0),
         }
-        a.pose(i + 1, rot=r, loc={"hips": (0, 0, -0.05 - 0.01 * bounce)})
+        a.pose(i + 1, rot=lefty(r), loc={"hips": (0, 0, -0.05 - 0.01 * bounce)})
     return a.finish()
 
 
@@ -516,15 +526,15 @@ def anim_shoot(rig):
             "shin.L": (60, 0, 0), "shin.R": (60, 0, 0), "foot.L": (-20, 0, 0), "foot.R": (-20, 0, 0),
             "upper_arm.R": (-110, 0, 15), "forearm.R": (-100, 0, 0), "hand.R": (40, 0, 0),
             "upper_arm.L": (-100, 0, -30), "forearm.L": (-90, 0, 0)}
-    a.pose(1, rot=set_, loc={"hips": (0, 0, -0.07)})
+    a.pose(1, rot=lefty(set_), loc={"hips": (0, 0, -0.07)})
     rise = {"spine": (-4, 0, 0), "head": (-15, 0, 0),
             "upper_arm.R": (-165, 0, 8), "forearm.R": (-35, 0, 0), "hand.R": (20, 0, 0),
             "upper_arm.L": (-140, 0, -20), "forearm.L": (-50, 0, 0)}
-    a.pose(8, rot=rise, loc={"hips": (0, 0, 0.03)})
+    a.pose(8, rot=lefty(rise), loc={"hips": (0, 0, 0.03)})
     follow = dict(rise)
     follow.update({"forearm.R": (-10, 0, 0), "hand.R": (-60, 0, 0), "head": (-18, 0, 0)})
-    a.pose(13, rot=follow, loc={"hips": (0, 0, 0.04)})
-    a.pose(24, rot=follow, loc={"hips": (0, 0, 0.0)})
+    a.pose(13, rot=lefty(follow), loc={"hips": (0, 0, 0.04)})
+    a.pose(24, rot=lefty(follow), loc={"hips": (0, 0, 0.0)})
     return a.finish()
 
 

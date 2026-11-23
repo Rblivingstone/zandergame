@@ -112,7 +112,7 @@ namespace ZanderGame
                 bool low = k < 0.15f;
                 if (low && !_wasLow) GameAudio.Play("bounce", 0.35f, Random.Range(0.95f, 1.05f));
                 _wasLow = low;
-                pos = p + right * 0.26f + fwd * 0.34f;
+                pos = p - right * 0.26f + fwd * 0.34f;   // Zander dribbles with his LEFT hand
                 pos.y = floorY + (handY - floorY) * k;
             }
             Ball.transform.position = pos;
