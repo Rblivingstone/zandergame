@@ -230,7 +230,7 @@ namespace ZanderGame
             var reach = transform.position + Vector3.up * (Height + 0.4f);
             foreach (var b in Basketball.All.ToArray())
             {
-                if (b == null || b.IsHeld || b.LastThrower != BallOwner.Player) continue;
+                if (b == null || b.IsHeld || b.IsDunk || b.LastThrower != BallOwner.Player) continue;
                 if ((b.transform.position - reach).magnitude > 3.0f) continue;
                 var away = b.transform.position - transform.position;
                 away.y = 0;

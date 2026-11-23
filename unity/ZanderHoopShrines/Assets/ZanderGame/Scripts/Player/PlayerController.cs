@@ -27,7 +27,10 @@ namespace ZanderGame
         public bool Grounded { get; private set; }
         public float HorizontalSpeed { get; private set; }
         public Vector3 Forward => Visual != null ? Visual.forward : transform.forward;
-        public bool IsHanging => Time.time < _hangUntil;
+        public bool IsHanging => Time.time < _hangUntil || Scripted;
+
+        /// <summary>True while a dunk moves Zander directly (leap to the rim, rim hang).</summary>
+        public bool Scripted { get; private set; }
         public bool IsStunned => Time.time < _stunUntil;
 
         Vector3 _hVel;
@@ -83,6 +86,13 @@ namespace ZanderGame
             bool frozen = gm != null && !gm.IsPlaying;
             float dt = Time.deltaTime;
             if (dt <= 0f) return;
+            if (Scripted)
+            {
+                Grounded = false;
+                HorizontalSpeed = 0f;
+                InteractPrompt = null;
+                return;
+            }
 
             // ---- ride moving platforms ----
             if (_ground != null)
@@ -217,7 +227,7 @@ namespace ZanderGame
 
         public void Knockback(Vector3 dir, float force)
         {
-            if (IsStunned) return;
+            if (IsStunned || Scripted) return;
             dir.y = 0;
             _external = dir.normalized * force;
             _vVel = 6f;
@@ -229,6 +239,38 @@ namespace ZanderGame
             Rumble.Pulse(1f, 0.8f, 0.4f);
         }
 
+        /// <summary>Take direct control of Zander's position (no collisions, no gravity).</summary>
+        public void BeginScripted()
+        {
+            Scripted = true;
+            CC.enabled = false;
+            _hVel = Vector3.zero;
+            _vVel = 0f;
+            _external = Vector3.zero;
+        }
+
+        public void ScriptedPose(Vector3 pos, Vector3 faceDir)
+        {
+            transform.position = pos;
+            faceDir.y = 0f;
+            if (faceDir.sqrMagnitude > 0.0001f && Visual != null)
+            {
+                _faceTarget = Quaternion.LookRotation(faceDir);
+                Visual.rotation = Quaternion.RotateTowards(Visual.rotation, _faceTarget, 1080f * Time.deltaTime);
+            }
+        }
+
+        /// <summary>Give control back (e.g. letting go of the rim) with a little push.</summary>
+        public void EndScripted(Vector3 push)
+        {
+            if (!Scripted) return;
+            Scripted = false;
+            CC.enabled = true;
+            _external = push;
+            _vVel = 0f;
+            _padCooldown = 0.4f;
+        }
+
         public void Hang(Vector3 at, float seconds)
         {
             _hangPos = at;
@@ -237,6 +279,7 @@ namespace ZanderGame
 
         public void Teleport(Vector3 pos, float yaw)
         {
+            Scripted = false;
             CC.enabled = false;
             transform.position = pos;
             CC.enabled = true;

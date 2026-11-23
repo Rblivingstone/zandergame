@@ -14,7 +14,7 @@ that same surface, so nothing pokes through; the face is projected onto the
 head. In Unity the ZanderGame/Toon shader adds cel shading and ink outlines.
 
 Animations (one Blender action each, exported as FBX takes):
-    Idle, Run, DribbleRun, Dribble, Jump, Shoot, Dunk, Celebrate, Hit
+    Idle, Run, DribbleRun, Dribble, Jump, Shoot, Dunk, Celebrate, Hit, RimHang
 
 Usage (Blender 3.6+ / 4.x / 5.x):
     blender -b -P blender/zander_character.py -- --out <dir>
@@ -557,6 +557,25 @@ def anim_dunk(rig):
     return a.finish()
 
 
+def anim_rimhang(rig):
+    """Hanging from the rim after a dunk: arms straight up gripping, legs swinging."""
+    a = zg.ActionBuilder(rig, "RimHang", 41, loop=True)
+    for i in range(0, 41, 4):
+        t = i / 40.0
+        sw = math.sin(t * 2 * math.pi)
+        kick = math.sin(t * 4 * math.pi)
+        a.pose(i + 1, rot={
+            "spine": (-4 + 3 * sw, 0, 0), "head": (-14, 0, 4 * sw),
+            "upper_arm.L": (-150, 0, 48), "upper_arm.R": (-150, 0, -48),
+            "forearm.L": (-6, 0, 0), "forearm.R": (-6, 0, 0),
+            "hand.L": (-15, 0, 0), "hand.R": (-15, 0, 0),
+            "thigh.L": (-18 + 16 * sw, 0, -4), "thigh.R": (-18 - 16 * sw, 0, 4),
+            "shin.L": (25 + 18 * max(0, kick), 0, 0), "shin.R": (25 + 18 * max(0, -kick), 0, 0),
+            "foot.L": (20, 0, 0), "foot.R": (20, 0, 0),
+        }, loc={"hips": (0, 0.012 * sw, 0)})
+    return a.finish()
+
+
 def anim_celebrate(rig):
     a = zg.ActionBuilder(rig, "Celebrate", 31, loop=True)
     for i in range(0, 31, 3):
@@ -594,7 +613,7 @@ def main():
     actions = [
         anim_idle(rig), anim_run(rig), anim_run(rig, "DribbleRun", with_ball=True),
         anim_dribble(rig), anim_jump(rig), anim_shoot(rig), anim_dunk(rig),
-        anim_celebrate(rig), anim_hit(rig),
+        anim_celebrate(rig), anim_hit(rig), anim_rimhang(rig),
     ]
     zg.push_actions_to_nla(rig, actions)
     rig.animation_data.action = actions[0]

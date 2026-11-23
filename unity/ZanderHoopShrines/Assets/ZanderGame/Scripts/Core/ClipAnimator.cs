@@ -26,7 +26,7 @@ namespace ZanderGame
 
         public static readonly HashSet<string> LoopingNames = new HashSet<string>
         {
-            "idle", "run", "dribble", "dribblerun", "celebrate", "walk", "block"
+            "idle", "run", "dribble", "dribblerun", "celebrate", "walk", "block", "rimhang"
         };
 
         public static ClipAnimator TryCreate(GameObject modelRoot, string resourcePath)

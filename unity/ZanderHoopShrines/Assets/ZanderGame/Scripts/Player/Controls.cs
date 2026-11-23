@@ -13,8 +13,8 @@ namespace ZanderGame
     ///   Look                Mouse                     Right stick
     ///   Jump                Space                     A
     ///   Sprint              Left Shift                LT (hold) or L3
-    ///   Shoot (hold)        Left mouse / F            RT (hold) or X - let go in the GREEN zone!
-    ///   Dunk                Shoot in mid-air by a hoop  RT in mid-air
+    ///   Shoot (hold)        Left mouse / F            RT (hold) - let go in the GREEN zone!
+    ///   Dunk (hold = hang)  C                         X   (near a hoop, holding the ball)
     ///   Drop / place ball   Q / right mouse           B
     ///   Use / turn board    E                         Y
     ///   Camera behind       -                         RB (or R3)
@@ -160,7 +160,7 @@ namespace ZanderGame
             get
             {
                 Tick();
-                return Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.F) || Input.GetKeyDown(PadX) || _rtDown;
+                return Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.F) || _rtDown;
             }
         }
 
@@ -169,9 +169,13 @@ namespace ZanderGame
             get
             {
                 Tick();
-                return Input.GetMouseButton(0) || Input.GetKey(KeyCode.F) || Input.GetKey(PadX) || _rtHeld;
+                return Input.GetMouseButton(0) || Input.GetKey(KeyCode.F) || _rtHeld;
             }
         }
+
+        /// <summary>Dunk has its own button: X on the controller, C on the keyboard.</summary>
+        public static bool DunkDown => Input.GetKeyDown(KeyCode.C) || Input.GetKeyDown(PadX);
+        public static bool DunkHeld => Input.GetKey(KeyCode.C) || Input.GetKey(PadX);
 
         public static bool DropDown => Input.GetKeyDown(KeyCode.Q) || Input.GetMouseButtonDown(1) || Input.GetKeyDown(PadB);
         public static bool InteractDown => Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(PadY);
@@ -207,6 +211,7 @@ namespace ZanderGame
             switch (action)
             {
                 case "SHOOT": return pad ? "RT" : "LEFT MOUSE";
+                case "DUNK": return pad ? "X" : "C";
                 case "JUMP": return pad ? "A" : "SPACE";
                 case "DROP": return pad ? "B" : "Q";
                 case "USE": return pad ? "Y" : "E";
@@ -227,7 +232,7 @@ namespace ZanderGame
         public static string Expand(string text)
         {
             if (string.IsNullOrEmpty(text) || text.IndexOf('{') < 0) return text;
-            foreach (var key in new[] { "SHOOT", "JUMP", "DROP", "USE", "HINT", "EASY", "SPRINT", "PAUSE", "MOVE", "LOOK",
+            foreach (var key in new[] { "SHOOT", "DUNK", "JUMP", "DROP", "USE", "HINT", "EASY", "SPRINT", "PAUSE", "MOVE", "LOOK",
                          "CAMERA", "RESTART", "START" })
                 text = text.Replace("{" + key + "}", Label(key));
             return text;

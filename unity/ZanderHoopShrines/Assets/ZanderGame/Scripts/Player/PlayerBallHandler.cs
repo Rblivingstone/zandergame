@@ -51,6 +51,7 @@ namespace ZanderGame
                 return;
             }
 
+            if (Dunking) return;
             if (Ball == null)
             {
                 Charging = false;
@@ -63,16 +64,22 @@ namespace ZanderGame
             }
             PlateBallNearby = null;
 
+            if (Dunking) return;
             UpdateAim();
             UpdateDunk();
 
-            if (Controls.ShootDown && !_pc.IsStunned)
+            if (Controls.DunkDown && !_pc.IsStunned && !Charging)
             {
                 if (DunkHoop != null)
                 {
-                    StartCoroutine(DoDunk(DunkHoop));
+                    StartCoroutine(DunkRoutine(DunkHoop));
                     return;
                 }
+                TooFarHint();
+            }
+
+            if (Controls.ShootDown && !_pc.IsStunned)
+            {
                 Charging = true;
                 _chargeT = 0f;
             }
@@ -219,44 +226,142 @@ namespace ZanderGame
         }
 
         // -------------------------------------------------------------- dunks --
+        public const float DunkReach = 5.0f;     // how far (flat) from the rim Zander can leap
+        public const float DunkMaxRise = 3.6f;   // how high above his feet a rim can be
+        public const float DunkMissChance = 0.10f;
+        public const float HangHandHeight = 1.15f; // hands above feet in the RimHang pose
+
+        public bool Dunking { get; private set; }
+        public bool RimHanging { get; private set; }
+        float _dunkHintAt;
+
         void UpdateDunk()
         {
             DunkHoop = null;
-            if (_pc.Grounded) return;
+            if (Dunking) return;
             var p = transform.position;
+            float reach = _pc.Grounded ? DunkReach : DunkReach + 1f;
+            float best = float.MaxValue;
             foreach (var h in Hoop.All)
             {
-                if (h == null || h.Mode == HoopMode.Counter && !h.AcceptPlayerShots) continue;
+                if (h == null || !h.isActiveAndEnabled || h.RequiresRebound || !h.AcceptPlayerShots) continue;
                 var rim = h.RimCenter;
-                if (Flat(rim - p) > 1.7f) continue;
-                if (p.y + 2.0f < rim.y - 0.35f) continue;   // can't reach yet
-                if (p.y > rim.y + 0.3f) continue;           // flew way over it
-                DunkHoop = h;
-                return;
+                float flat = Flat(rim - p);
+                float rise = rim.y - p.y;
+                if (flat > reach || rise > DunkMaxRise || rise < -1.0f) continue;
+                if (flat < best)
+                {
+                    best = flat;
+                    DunkHoop = h;
+                }
             }
         }
 
-        System.Collections.IEnumerator DoDunk(Hoop hoop)
+        void TooFarHint()
+        {
+            if (Time.time < _dunkHintAt) return;
+            _dunkHintAt = Time.time + 1.5f;
+            var p = transform.position;
+            foreach (var h in Hoop.All)
+            {
+                if (h == null || h.RequiresRebound || !h.AcceptPlayerShots) continue;
+                if (Flat(h.RimCenter - p) < DunkReach + 1f && h.RimCenter.y - p.y > DunkMaxRise)
+                {
+                    Hud.Toast("Too high! Use a BOUNCE pad, then press {DUNK} in the air!", new Color(0.7f, 0.5f, 1f), 1.6f);
+                    return;
+                }
+            }
+            Hud.Toast("Get closer to a hoop to dunk!", Color.white, 1.2f);
+        }
+
+        /// <summary>Where Zander hangs: in front of the rim, hands on it.</summary>
+        static Vector3 HangPoint(Hoop hoop, out Vector3 front)
+        {
+            front = hoop.transform.forward;
+            front.y = 0f;
+            front = front.sqrMagnitude > 0.001f ? front.normalized : Vector3.forward;
+            return hoop.RimCenter + front * 0.42f + Vector3.down * HangHandHeight;
+        }
+
+        static float Smooth(float k) => k * k * (3f - 2f * k);
+
+        System.Collections.IEnumerator DunkRoutine(Hoop hoop)
         {
             var ball = Ball;
-            var rim = hoop.RimCenter;
-            var toPlayer = transform.position - rim;
-            toPlayer.y = 0;
-            if (toPlayer.sqrMagnitude < 0.01f) toPlayer = hoop.transform.forward;
-            toPlayer = toPlayer.normalized;
-            var hangAt = rim + toPlayer * 0.55f;
-            hangAt.y = rim.y - 1.7f;
-            _pc.Hang(hangAt, 0.55f);
-            _pc.Anim?.Trigger("Dunk");
+            Dunking = true;
             Charging = false;
-            yield return new WaitForSeconds(0.12f);
-            if (ball == null || Ball != ball) yield break;
-            Ball = null;
-            ball.Release(rim + Vector3.up * 0.3f, Vector3.down * 5f, BallOwner.Player);
-            ball.IsDunk = true;
-            _pickupCooldown = Time.time + 0.8f;
+            _pc.BeginScripted();
+            _pc.Anim?.SetDunkPhase(1);
+            GameAudio.Play("throw", 0.9f, 0.8f);
+
+            // 1) leap to the rim (follows the rim if it moves)
+            Vector3 start = transform.position;
+            HangPoint(hoop, out var front0);
+            float dur = Mathf.Clamp(0.32f + Flat(hoop.RimCenter - start) * 0.07f, 0.35f, 0.75f);
+            float t = 0f;
+            while (t < dur)
+            {
+                if (!_pc.Scripted) { EndDunk(); yield break; }
+                t += Time.deltaTime;
+                float k = Mathf.Clamp01(t / dur);
+                var hang = HangPoint(hoop, out var front);
+                var pos = Vector3.Lerp(start, hang, Smooth(k));
+                pos.y += Mathf.Sin(k * Mathf.PI) * 0.9f;      // a little hop over the top
+                _pc.ScriptedPose(pos, -front);
+                yield return null;
+            }
+
+            // 2) the slam: 90% it goes down, 10% it rims out (decided only now, truly at random)
+            bool makesIt = UnityEngine.Random.value >= DunkMissChance;
+            _pc.Anim?.SetDunkPhase(2);
+            var rim = hoop.RimCenter;
+            HangPoint(hoop, out var f);
+            if (ball != null && Ball == ball)
+            {
+                Ball = null;
+                if (makesIt)
+                {
+                    ball.Release(rim + Vector3.up * 0.32f, Vector3.down * 5f, BallOwner.Player);
+                    ball.IsDunk = true;
+                    Hud.Toast("SLAM DUNK!", new Color(1f, 0.8f, 0.2f));
+                }
+                else
+                {
+                    // jammed onto the front of the rim: it bounces back out
+                    var side = Vector3.Cross(Vector3.up, f) * UnityEngine.Random.Range(-1f, 1f);
+                    ball.Release(rim + f * (hoop.RimRadius + 0.05f) + Vector3.up * 0.2f,
+                        f * 2.6f + Vector3.up * 3.2f + side * 1.2f, BallOwner.Player);
+                    ball.IsDunk = true;
+                    GameAudio.PlayAt("rim", rim, 1f, 0.85f);
+                    Rumble.Pulse(0.5f, 0.2f, 0.2f);
+                    Hud.Toast("CLANK! Off the rim!", new Color(1f, 0.6f, 0.4f), 1.2f);
+                }
+                _pickupCooldown = Time.time + 1.0f;
+            }
             _pc.Cam?.Shake(0.35f);
-            Hud.Toast("SLAM DUNK!", new Color(1f, 0.8f, 0.2f));
+
+            // 3) hang on the rim for as long as Dunk is held
+            RimHanging = true;
+            float hangT = 0f;
+            while (_pc.Scripted && hangT < 12f && (hangT < 0.35f || Controls.DunkHeld))
+            {
+                hangT += Time.deltaTime;
+                var hang = HangPoint(hoop, out var front);
+                hang += front * Mathf.Sin(hangT * 3f) * 0.03f;   // gentle swing
+                _pc.ScriptedPose(hang, -front);
+                if (hangT > 0.4f) _pc.Anim?.SetDunkPhase(3);
+                yield return null;
+            }
+            HangPoint(hoop, out var fEnd);
+            EndDunk();
+            _pc.EndScripted(fEnd * 2.5f);
+        }
+
+        void EndDunk()
+        {
+            Dunking = false;
+            RimHanging = false;
+            _pc.Anim?.SetDunkPhase(0);
         }
 
         // ------------------------------------------------------------- shooting --

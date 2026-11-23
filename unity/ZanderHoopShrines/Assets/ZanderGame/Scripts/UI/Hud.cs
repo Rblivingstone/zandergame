@@ -126,12 +126,12 @@ namespace ZanderGame
             string controls = Controls.UsingGamepad
                 ? "<b>MOVE</b>  Left stick        <b>LOOK</b>  Right stick        <b>JUMP</b>  A        <b>SPRINT</b>  hold LT\n" +
                   "<b>SHOOT</b>  hold RT - let go in the <color=#6CFF8A>GREEN</color> zone!\n" +
-                  "<b>DUNK</b>  RT while jumping next to a hoop        <b>CAMERA BEHIND</b>  RB\n" +
+                  "<b>DUNK</b>  X near a hoop (hold X to hang on the rim)        <b>CAMERA BEHIND</b>  RB\n" +
                   "<b>DROP / PLACE BALL</b>  B        <b>USE / TURN BOARD</b>  Y\n" +
                   "<b>HINT</b>  LB        <b>SUPER SHOTS</b>  View        <b>PAUSE</b>  Menu"
                 : "<b>MOVE</b>  WASD / arrows        <b>JUMP</b>  Space        <b>SPRINT</b>  Shift\n" +
                   "<b>SHOOT</b>  hold Left Mouse (or F) - let go in the <color=#6CFF8A>GREEN</color> zone!\n" +
-                  "<b>DUNK</b>  press Shoot while jumping next to a hoop\n" +
+                  "<b>DUNK</b>  C near a hoop (hold C to hang on the rim)\n" +
                   "<b>DROP / PLACE BALL</b>  Q        <b>USE / TURN BOARD</b>  E\n" +
                   "<b>HINT</b>  H        <b>SUPER SHOTS</b>  Tab        <b>RESTART ROOM</b>  R        <b>PAUSE</b>  Esc";
             Text(new Rect(bx + 30, by + 20, bw - 60, 270), controls, _small, Color.white);
@@ -212,7 +212,8 @@ namespace ZanderGame
             var p = gm.Player;
             if (p == null) return;
             string s = null;
-            if (p.Balls != null && p.Balls.DunkHoop != null) s = "PRESS {SHOOT} TO DUNK!";
+            if (p.Balls != null && p.Balls.RimHanging) s = "Hold {DUNK} to hang on the rim!";
+            else if (p.Balls != null && p.Balls.DunkHoop != null) s = "Press {DUNK} to DUNK!";
             else if (!string.IsNullOrEmpty(p.InteractPrompt)) s = p.InteractPrompt;
             if (s == null) return;
             float w = 640, x = (W - w) / 2, y = H - 110;

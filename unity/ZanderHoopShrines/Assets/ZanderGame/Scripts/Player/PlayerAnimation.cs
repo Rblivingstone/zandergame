@@ -22,6 +22,20 @@ namespace ZanderGame
             _rig = pc.Visual.GetComponent<CharacterRig>();
         }
 
+        int _dunkPhase;   // 0 none, 1 leap, 2 slam, 3 hanging on the rim
+
+        public void SetDunkPhase(int phase)
+        {
+            if (phase == _dunkPhase) return;
+            _dunkPhase = phase;
+            if (phase == 2)
+            {
+                _clips?.PlayOnce("Dunk", 1.5f);
+                _oneShot = "Dunk";
+                _oneShotUntil = Time.time + 0.4f;
+            }
+        }
+
         public void OnJump() => Trigger("Jump");
         public void OnHit() => Trigger("Hit");
 
@@ -56,6 +70,12 @@ namespace ZanderGame
             bool ball = _pc.Balls != null && _pc.Balls.HasBall;
             float spd = _pc.HorizontalSpeed;
 
+            if (_clips != null && _dunkPhase > 0)
+            {
+                _clips.SetBase(_dunkPhase == 1 ? "Jump" : "RimHang", 1f, 0.12f);
+                _clips.Tick(dt);
+                return;
+            }
             if (_clips != null)
             {
                 if (_pc.Grounded || _pc.IsHanging)
@@ -77,7 +97,7 @@ namespace ZanderGame
             float s = Mathf.Sin(ph);
             bool shooting = Time.time < _oneShotUntil && (_oneShot == "Shoot" || _oneShot == "Dunk");
             bool cheering = Time.time < _oneShotUntil && _oneShot == "Celebrate";
-            bool charging = _pc.Balls != null && _pc.Balls.Charging;
+            bool charging = (_pc.Balls != null && _pc.Balls.Charging) || _dunkPhase > 0;
 
             float legSwing = 40f * run * s;
             float armSwing = 45f * run * s;

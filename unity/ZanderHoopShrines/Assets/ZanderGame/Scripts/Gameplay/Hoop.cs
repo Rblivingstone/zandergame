@@ -168,7 +168,7 @@ namespace ZanderGame
         {
             if (DunkOnly && !ball.IsDunk)
             {
-                Hud.Toast("DUNK ONLY! Jump up and dunk it!", HoopColor);
+                Hud.Toast("DUNK ONLY! Get close with the ball and press {DUNK}!", HoopColor);
                 GameAudio.PlayAt("buzz", RimCenter, 0.4f);
                 return;
             }

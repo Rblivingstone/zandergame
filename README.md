@@ -47,8 +47,8 @@ controller rumbles on dunks, stomps and shrine clears.
 | Camera behind Zander | RB (or R3) | – |
 | Jump | A | Space |
 | Sprint | Hold LT (or L3) | Left Shift |
-| **Shoot** | Hold **RT** (or X), release in the **green** zone | Hold left mouse (or F) |
-| **Dunk** | RT in mid-air next to a hoop | Same as Shoot |
+| **Shoot** | Hold **RT**, release in the **green** zone | Hold left mouse (or F) |
+| **Dunk** | **X** near a hoop with the ball: Zander leaps to the rim. **Hold X** to hang on the rim | **C** (hold to hang) |
 | Drop / place ball on a plate | B | Q / right mouse |
 | Use (turn boards, take a ball off a plate) | Y | E |
 | Hint | LB | H |
@@ -83,7 +83,8 @@ double-click the `.exe`. **Zander → Build and Run on this PC** builds the game
 | **Championship Court** | Boss | First to 15 vs **KING SWAT**. 3-pointers count. Jump his stomp shockwaves, wait out his swats, and hit a moving hoop in the final round. |
 
 Basketball mechanics: auto pick-up, dribbling, a timing shot meter with
-kid-friendly aim assist, free throws, dunks, placing balls on plates,
+kid-friendly aim assist, free throws, one-button auto-leap dunks (90% go in,
+10% clang off the rim) with a hold-to-hang rim animation, placing balls on plates,
 bounce pads, and bank shots off rotating Rebound Boards.
 
 ## Repository layout
