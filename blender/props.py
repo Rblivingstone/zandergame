@@ -33,6 +33,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import zg_common as zg  # noqa: E402  (imports bpy first)
+import zg_proppaint as zpp  # noqa: E402
 import bmesh  # noqa: E402
 from mathutils import Vector  # noqa: E402
 
@@ -84,11 +85,11 @@ def make_hoop():
     rim = M("Rim", "#FF6A1A", 0.3, 0.5)
     net = M("Net", "#FFFFFF", 0.9)
     objs = []
-    objs.append(B("base", (0, 1.1, 0.15), (0.9, 0.9, 0.3), mat=pad, bevel=0.05))
+    objs.append(B("base", (0, 1.1, 0.15), (0.9, 0.9, 0.3), mat=pad, bevel=0.11))
     objs.append(C("pole", (0, 1.1, 1.8), 0.08, 3.6, mat=pole))
-    objs.append(B("pole_pad", (0, 1.1, 1.0), (0.3, 0.3, 2.0), mat=pad, bevel=0.04))
+    objs.append(B("pole_pad", (0, 1.1, 1.0), (0.3, 0.3, 2.0), mat=pad, bevel=0.088))
     objs.append(B("arm", (0, 0.8, 3.35), (0.12, 0.62, 0.12), mat=pole))
-    objs.append(B("board", (0, 0.45, 3.35), (1.6, 0.06, 1.05), mat=board, bevel=0.02))
+    objs.append(B("board", (0, 0.45, 3.35), (1.6, 0.06, 1.05), mat=board, bevel=0.044))
     # orange shooter's square + border on the front face (y = 0.415)
     fy = 0.416
     for (x, z, w, h) in ((0, 3.85, 1.56, 0.03), (0, 2.85, 1.56, 0.03), (-0.78, 3.35, 0.03, 1.0), (0.78, 3.35, 0.03, 1.0),
@@ -113,10 +114,10 @@ def make_pressure_plate():
     stone = M("PlateStone", "#565D6B", 0.85)
     glow = M("PlateGlow", "#FFB347", 0.3, emission="#FF9A1F", emission_strength=1.5)
     top_mat = M("PlateTop", "#4AA3FF", 0.45)
-    base = B("base", (0, 0, 0.05), (1.6, 1.6, 0.1), mat=stone, bevel=0.03)
+    base = B("base", (0, 0, 0.05), (1.6, 1.6, 0.1), mat=stone, bevel=0.066)
     ring = T("rune_ring", (0, 0, 0.1), 0.72, 0.015, scale=(1, 1, 0.5), mat=glow, major_seg=4, minor_seg=4)
     ring.rotation_euler = (0, 0, math.radians(45))
-    top = B("PlateTop", (0, 0, 0.14), (1.3, 1.3, 0.08), mat=top_mat, bevel=0.02)
+    top = B("PlateTop", (0, 0, 0.14), (1.3, 1.3, 0.08), mat=top_mat, bevel=0.044)
     _attach([base, ring], root)
     top.parent = root
     return root
@@ -132,14 +133,14 @@ def make_gate():
     seam = M("GateSeam", "#1E140E", 0.8)
     objs = []
     for sx in (1, -1):
-        objs.append(B("pillar", (sx * 1.75, 0, 2.15), (0.5, 0.7, 4.3), mat=stone, bevel=0.04))
-        objs.append(B("pillar_cap", (sx * 1.75, 0, 4.35), (0.7, 0.85, 0.2), mat=stone_dark, bevel=0.03))
+        objs.append(B("pillar", (sx * 1.75, 0, 2.15), (0.5, 0.7, 4.3), mat=stone, bevel=0.088))
+        objs.append(B("pillar_cap", (sx * 1.75, 0, 4.35), (0.7, 0.85, 0.2), mat=stone_dark, bevel=0.066))
         objs.append(B("pillar_rune", (sx * 1.75, -0.36, 2.0), (0.12, 0.02, 2.4), mat=glow))
         objs.append(B("pillar_rune_b", (sx * 1.75, 0.36, 2.0), (0.12, 0.02, 2.4), mat=glow))
-    objs.append(B("lintel", (0, 0, 3.9), (4.0, 0.7, 0.8), mat=stone, bevel=0.04))
+    objs.append(B("lintel", (0, 0, 3.9), (4.0, 0.7, 0.8), mat=stone, bevel=0.088))
     objs.append(B("lintel_rune", (0, -0.36, 3.9), (2.6, 0.02, 0.1), mat=glow))
     _attach(objs, root)
-    panel_parts = [B("panel", (0, 0, 1.75), (3.0, 0.25, 3.5), mat=panel_mat, bevel=0.03)]
+    panel_parts = [B("panel", (0, 0, 1.75), (3.0, 0.25, 3.5), mat=panel_mat, bevel=0.066)]
     for sy in (1, -1):
         panel_parts.append(C("emblem", (0, sy * 0.13, 1.9), 0.55, 0.04, rot=(90, 0, 0), mat=ball, verts=32))
         panel_parts.append(B("emblem_v", (0, sy * 0.155, 1.9), (0.04, 0.01, 1.1), mat=seam))
@@ -157,10 +158,10 @@ def make_ball_dispenser():
     trim = M("DispTrim", "#2C3E66", 0.5)
     glow = M("DispGlow", "#FFB347", 0.3, emission="#FF9A1F", emission_strength=2.0)
     objs = [
-        C("base", (0, 0, 0.08), 0.5, 0.16, mat=trim, verts=8),
-        C("column", (0, 0, 0.5), 0.26, 0.8, mat=stone, verts=8),
+        C("base", (0, 0, 0.08), 0.5, 0.16, mat=trim, verts=32),
+        C("column", (0, 0, 0.5), 0.26, 0.8, mat=stone, verts=32),
         T("glow_ring", (0, 0, 0.62), 0.27, 0.025, mat=glow, major_seg=8, minor_seg=6),
-        C("top", (0, 0, 0.9), 0.33, 0.06, mat=trim, verts=8),
+        C("top", (0, 0, 0.9), 0.33, 0.06, mat=trim, verts=32),
         T("cup", (0, 0, 0.95), 0.14, 0.035, mat=trim, major_seg=16),
     ]
     _attach(objs, root)
@@ -190,11 +191,11 @@ def make_rebound_board():
     face = M("RBFace", "#DDEBFF", 0.1)
     frame = M("RBGlow", "#4AD7FF", 0.3, emission="#29C4FF", emission_strength=2.0)
     arrow = M("RBArrow", "#FFC21A", 0.4)
-    base = C("base", (0, 0, 0.1), 0.55, 0.2, mat=base_m, verts=12)
+    base = C("base", (0, 0, 0.1), 0.55, 0.2, mat=base_m, verts=32)
     _attach([base], root)
     pivot = zg.empty("BoardPivot", parent=root)
     parts = [C("post", (0, 0, 0.75), 0.08, 1.1, mat=post),
-             B("panel", (0, 0, 2.0), (1.6, 0.12, 1.6), mat=face, bevel=0.03)]
+             B("panel", (0, 0, 2.0), (1.6, 0.12, 1.6), mat=face, bevel=0.066)]
     # glowing frame on the front (-Y) face
     for (x, z, w, h) in ((0, 2.78, 1.6, 0.06), (0, 1.22, 1.6, 0.06), (-0.78, 2.0, 0.06, 1.6), (0.78, 2.0, 0.06, 1.6)):
         parts.append(B("frame", (x, -0.065, z), (w, 0.02, h), mat=frame))
@@ -202,7 +203,7 @@ def make_rebound_board():
     parts.append(T("target", (0, -0.07, 2.0), 0.35, 0.03, rot=(90, 0, 0), mat=frame))
     # arrow on top pointing the way the board "throws" (-Y)
     parts.append(B("arrow_shaft", (0, -0.15, 2.9), (0.08, 0.5, 0.06), mat=arrow))
-    ah = zg.cone("arrow_head", (0, -0.5, 2.9), 0.16, 0.0, 0.3, rot=(90, 0, 0), mat=arrow, verts=12)
+    ah = zg.cone("arrow_head", (0, -0.5, 2.9), 0.16, 0.0, 0.3, rot=(90, 0, 0), mat=arrow, verts=32)
     parts.append(ah)
     board = zg.join(parts, "BoardMesh")
     board.parent = pivot
@@ -230,7 +231,7 @@ def make_scoreboard():
     screen = M("SBScreen", "#0B0F1A", 0.2)
     led = M("SBLed", "#FFC21A", 0.3, emission="#FFB000", emission_strength=2.5)
     red = M("SBRed", "#FF3B3B", 0.3, emission="#FF2020", emission_strength=2.5)
-    objs = [B("body", (0, 0, 0), (4.2, 0.4, 2.1), mat=body, bevel=0.05),
+    objs = [B("body", (0, 0, 0), (4.2, 0.4, 2.1), mat=body, bevel=0.11),
             B("screen_l", (-1.05, -0.21, 0.1), (1.7, 0.02, 1.4), mat=screen),
             B("screen_r", (1.05, -0.21, 0.1), (1.7, 0.02, 1.4), mat=screen),
             B("bar", (0, -0.215, -0.82), (3.8, 0.02, 0.12), mat=led)]
@@ -247,9 +248,9 @@ def make_shrine_pillar():
     stone = M("PillarStone", "#4A5162", 0.85)
     dark = M("PillarDark", "#373D4B", 0.9)
     glow = M("PillarGlow", "#FFB347", 0.3, emission="#FF9A1F", emission_strength=2.0)
-    objs = [B("foot", (0, 0, 0.15), (1.3, 1.3, 0.3), mat=dark, bevel=0.04),
-            B("shaft", (0, 0, 2.5), (1.0, 1.0, 4.4), mat=stone, bevel=0.04),
-            B("cap", (0, 0, 4.85), (1.3, 1.3, 0.3), mat=dark, bevel=0.04)]
+    objs = [B("foot", (0, 0, 0.15), (1.3, 1.3, 0.3), mat=dark, bevel=0.088),
+            B("shaft", (0, 0, 2.5), (1.0, 1.0, 4.4), mat=stone, bevel=0.088),
+            B("cap", (0, 0, 4.85), (1.3, 1.3, 0.3), mat=dark, bevel=0.088)]
     for i in range(4):
         a = i * math.pi / 2
         objs.append(B("rune", (math.sin(a) * 0.51, math.cos(a) * 0.51, 3.2), (0.18, 0.18, 0.9),
@@ -264,7 +265,7 @@ def make_trophy():
     gold = M("TrophyGold", "#FFC21A", 0.2, 0.9)
     wood = M("TrophyBase", "#5B3A1E", 0.6)
     ball = M("TrophyBall", "#E8772E", 0.6)
-    objs = [B("plinth", (0, 0, 0.1), (0.5, 0.5, 0.2), mat=wood, bevel=0.02),
+    objs = [B("plinth", (0, 0, 0.1), (0.5, 0.5, 0.2), mat=wood, bevel=0.044),
             C("foot", (0, 0, 0.25), 0.18, 0.1, mat=gold),
             C("stem", (0, 0, 0.38), 0.05, 0.2, mat=gold),
             zg.cone("cup", (0, 0, 0.6), 0.1, 0.24, 0.3, mat=gold, verts=24),
@@ -276,9 +277,55 @@ def make_trophy():
     return root
 
 
+def make_lift_platform():
+    """3 x 3 m lift deck (0.4 m thick, centred on its origin) with glowing
+    green edge runes (material ZG_LiftGlow - lit up by the game when powered)."""
+    root = _root("LiftPlatform")
+    deck = M("LiftDeck", "#2C3E66", 0.5)
+    trim = M("LiftTrim", "#FFC21A", 0.35, 0.6)
+    glow = M("LiftGlow", "#3CE07A", 0.3, emission="#1FB85A", emission_strength=1.0)
+    metal = M("LiftMetal", "#8C96A6", 0.35, 0.7)
+    objs = [B("deck", (0, 0, 0), (3.0, 3.0, 0.4), mat=deck, bevel=0.08),
+            B("top", (0, 0, 0.205), (2.6, 2.6, 0.02), mat=M("LiftPlate", "#3B5288", 0.5), bevel=0.0)]
+    for sx in (1, -1):
+        objs.append(B("glow_x", (sx * 1.38, 0, 0.215), (0.08, 2.5, 0.03), mat=glow))
+        objs.append(B("glow_y", (0, sx * 1.38, 0.215), (2.5, 0.08, 0.03), mat=glow))
+        for sy in (1, -1):
+            objs.append(C("bolt", (sx * 1.25, sy * 1.25, 0.22), 0.07, 0.04, mat=metal, verts=24))
+    # painted up-arrows on the plate
+    for k in range(2):
+        objs.append(zg.cone("arrow%d" % k, (0, -0.25 + k * 0.5, 0.225), 0.32, 0.0, 0.02, mat=trim, verts=3,
+                            rot=(0, 0, 90)))
+    objs.append(T("rim", (0, 0, -0.05), 1.45, 0.05, scale=(1, 1, 1), mat=trim, major_seg=4, minor_seg=6))
+    objs[-1].rotation_euler = (0, 0, math.radians(45))
+    _attach(objs, root)
+    return root
+
+
+def make_bridge():
+    """Stone-and-wood shrine bridge deck: 4 m wide, 8.6 m long, 0.5 m thick,
+    centred on its origin, running along -Y/+Y (Unity Z). Glowing orange edges."""
+    root = _root("Bridge")
+    stone = M("BridgeStone", "#4E5668", 0.85)
+    wood = M("BridgePlank", "#B07A43", 0.7)
+    glow = M("BridgeGlow", "#FF8A1F", 0.3, emission="#FF8A1F", emission_strength=1.5)
+    objs = [B("beam_l", (-1.75, 0, -0.02), (0.5, 8.6, 0.46), mat=stone, bevel=0.06),
+            B("beam_r", (1.75, 0, -0.02), (0.5, 8.6, 0.46), mat=stone, bevel=0.06),
+            B("under", (0, 0, -0.12), (3.2, 8.6, 0.26), mat=stone, bevel=0.04)]
+    n = 17
+    for i in range(n):
+        y = -4.3 + (i + 0.5) * 8.6 / n
+        objs.append(B("plank", (0, y, 0.12), (3.0, 8.6 / n - 0.04, 0.26), mat=wood, bevel=0.035))
+    for sx in (1, -1):
+        objs.append(B("edge_glow", (sx * 1.95, 0, 0.21), (0.08, 8.5, 0.06), mat=glow))
+    _attach(objs, root)
+    return root
+
+
 PROPS = [
     make_basketball, make_hoop, make_pressure_plate, make_gate, make_ball_dispenser, make_bounce_pad,
-    make_rebound_board, make_bleachers, make_scoreboard, make_shrine_pillar, make_trophy,
+    make_rebound_board, make_bleachers, make_scoreboard, make_shrine_pillar, make_trophy, make_lift_platform,
+    make_bridge,
 ]
 
 
@@ -289,6 +336,7 @@ def main():
     for fn in PROPS:
         zg.reset_scene()
         root = fn()
+        zpp.paint_prop(root)
         objs = [root] + list(root.children_recursive)
         zg.export_fbx(os.path.join(out, root.name + ".fbx"), objs, animated=False)
         zg.save_blend(os.path.join(blend_dir, root.name + ".blend"))

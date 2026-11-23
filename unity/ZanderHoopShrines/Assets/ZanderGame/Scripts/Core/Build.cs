@@ -43,7 +43,7 @@ namespace ZanderGame
         public static GameObject StoneBox(string name, Transform parent, Vector3 center, Vector3 size)
         {
             var tiling = new Vector2(Mathf.Max(1, Mathf.Max(size.x, size.z) / 2f), Mathf.Max(1, size.y / 2f));
-            var m = Mat.Textured(ProceduralTextures.Stone(), tiling, 0.1f);
+            var m = Mat.Textured(ProceduralTextures.Stone(), tiling, 0.1f, Mat.DefaultOutline);
             return Box(name, parent, center, size, m);
         }
 

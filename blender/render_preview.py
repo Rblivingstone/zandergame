@@ -143,6 +143,9 @@ scene.collection.objects.link(cam)
 scene.camera = cam
 
 views = {"front": (0, -1, 0.15), "side": (1, 0, 0.1), "back": (0, 1, 0.1), "three_quarter": (-0.7, -1, 0.35)}
+only = os.environ.get("ZG_VIEWS")
+if only:
+    views = {k: v for k, v in views.items() if k in only.split(",")}
 for name, d in views.items():
     d = Vector(d).normalized()
     cam.location = centre + d * size * 3

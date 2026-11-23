@@ -16,7 +16,7 @@ namespace ZanderGame
         static readonly string[] NoOutline =
         {
             "Blush", "Iris", "Pupil", "Eye", "Lash", "Brow", "Mouth", "Tongue", "Trim", "Seam", "Tooth", "Gem",
-            "Glow", "Line", "Nose", "Shine", "Led", "Rune"
+            "Glow", "Line", "Nose", "Shine", "Led", "Rune", "Net"
         };
 
         public static Shader Toon

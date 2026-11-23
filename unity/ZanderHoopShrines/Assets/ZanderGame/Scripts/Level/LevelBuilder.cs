@@ -291,9 +291,21 @@ namespace ZanderGame
 
             // lift
             var lift = Build.Group("Lift", a, new Vector3(7, -0.2f, 64.4f));
-            var liftGlow = Mat.Glow(Mat.Hex("#4E5668"), Color.black, 1f);
-            Build.Box("LiftDeck", lift.transform, Vector3.zero, new Vector3(3, 0.4f, 3), Mat.Color("#2C3E66", 0.4f));
-            Build.Box("LiftGlow", lift.transform, new Vector3(0, 0.21f, 0), new Vector3(2.4f, 0.02f, 2.4f), liftGlow, false);
+            Material liftGlow;
+            var liftModel = ModelLibrary.Spawn("LiftPlatform", lift.transform, Vector3.zero);
+            var liftGlows = liftModel != null ? ModelLibrary.Materials(liftModel, "LiftGlow") : null;
+            if (liftGlows != null && liftGlows.Count > 0)
+            {
+                liftGlow = liftGlows[0];
+                Build.Collider("LiftDeckCol", lift.transform, Vector3.zero, new Vector3(3, 0.4f, 3));
+            }
+            else
+            {
+                if (liftModel != null) Object.Destroy(liftModel);
+                liftGlow = Mat.Glow(Mat.Hex("#4E5668"), Color.black, 1f);
+                Build.Box("LiftDeck", lift.transform, Vector3.zero, new Vector3(3, 0.4f, 3), Mat.Color("#2C3E66", 0.4f));
+                Build.Box("LiftGlow", lift.transform, new Vector3(0, 0.21f, 0), new Vector3(2.4f, 0.02f, 2.4f), liftGlow, false);
+            }
             lift.AddComponent<Rigidbody>().isKinematic = true;
             var mp = lift.AddComponent<MovingPlatform>();
             mp.A = new Vector3(7, -0.2f, 64.4f);
@@ -372,11 +384,17 @@ namespace ZanderGame
             room.Dispensers.Add(BallDispenser.Create("Rack", a, new Vector3(7, 0, 90), 2));
             var plate = PressurePlate.Create("Bridge Plate", a, new Vector3(-7, 0, 93), PlateKind.Ball);
             var bridge = Build.Group("Bridge", a, new Vector3(0, -6f, (pit0 + pit1) / 2));
-            Build.Box("Deck", bridge.transform, Vector3.zero, new Vector3(4, 0.5f, pit1 - pit0 + 0.6f), Mat.Color("#2C3E66", 0.4f));
-            Build.Box("Edge", bridge.transform, new Vector3(-1.95f, 0.26f, 0), new Vector3(0.1f, 0.04f, pit1 - pit0),
-                Mat.Glow(Mat.Hex("#FF8A1F"), Mat.Hex("#FF8A1F"), 1.5f), false);
-            Build.Box("Edge", bridge.transform, new Vector3(1.95f, 0.26f, 0), new Vector3(0.1f, 0.04f, pit1 - pit0),
-                Mat.Glow(Mat.Hex("#FF8A1F"), Mat.Hex("#FF8A1F"), 1.5f), false);
+            var deckSize = new Vector3(4, 0.5f, pit1 - pit0 + 0.6f);
+            if (ModelLibrary.Spawn("Bridge", bridge.transform, Vector3.zero) != null)
+                Build.Collider("DeckCol", bridge.transform, Vector3.zero, deckSize);
+            else
+            {
+                Build.Box("Deck", bridge.transform, Vector3.zero, new Vector3(4, 0.5f, pit1 - pit0 + 0.6f), Mat.Color("#2C3E66", 0.4f));
+                Build.Box("Edge", bridge.transform, new Vector3(-1.95f, 0.26f, 0), new Vector3(0.1f, 0.04f, pit1 - pit0),
+                    Mat.Glow(Mat.Hex("#FF8A1F"), Mat.Hex("#FF8A1F"), 1.5f), false);
+                Build.Box("Edge", bridge.transform, new Vector3(1.95f, 0.26f, 0), new Vector3(0.1f, 0.04f, pit1 - pit0),
+                    Mat.Glow(Mat.Hex("#FF8A1F"), Mat.Hex("#FF8A1F"), 1.5f), false);
+            }
             bridge.AddComponent<Rigidbody>().isKinematic = true;
             var bm = bridge.AddComponent<SignalMover>();
             bm.Inputs.Inputs.Add(plate);

@@ -55,6 +55,7 @@ Shader "ZanderGame/Toon"
             }
             fixed4 frag (v2f i) : SV_Target
             {
+                clip(_OutlineWidth - 1e-6);   // no outline requested: draw nothing
                 fixed4 c = _OutlineColor;
                 // outlines pick up a hint of the surface colour, like anime ink lines
                 c.rgb = lerp(c.rgb, c.rgb * _Color.rgb, 0.35);

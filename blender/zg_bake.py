@@ -34,7 +34,7 @@ def unwrap(obj, margin=0.004):
     bpy.ops.object.mode_set(mode="OBJECT")
 
 
-def bake(obj, size, paint_fn, name, groups=(), supersample=2, dilate=6):
+def bake(obj, size, paint_fn, name, groups=(), supersample=2, dilate=6, attr_name=None):
     """Rasterise every UV triangle, interpolate 3D position/normal/weights per
     texel and let paint_fn colour them. Supersampled, then edge-dilated."""
     me = obj.data
@@ -58,10 +58,18 @@ def bake(obj, size, paint_fn, name, groups=(), supersample=2, dilate=6):
                     if g.group == gi:
                         w[v.index] = g.weight
         gw[gname] = w
+    loop_col = None
+    if attr_name and attr_name in me.color_attributes:
+        a = me.color_attributes[attr_name]
+        loop_col = np.empty(len(me.loops) * 4, dtype=np.float64)
+        a.data.foreach_get("color", loop_col)
+        loop_col = loop_col.reshape(-1, 4)
 
     S = size * supersample
     pix_idx, pos, nor = [], [], []
     wts = {k: [] for k in gw}
+    if loop_col is not None:
+        wts["__col"] = []
     for tri in me.loop_triangles:
         uv = np.array([uv_layer[li].uv[:] for li in tri.loops]) * S - 0.5
         vi = list(tri.vertices)
@@ -90,6 +98,8 @@ def bake(obj, size, paint_fn, name, groups=(), supersample=2, dilate=6):
         nor.append(L @ nrm[vi])
         for k, w in gw.items():
             wts[k].append(L @ w[vi])
+        if loop_col is not None:
+            wts["__col"].append(L @ loop_col[list(tri.loops)])
 
     img = np.zeros((S * S, 3), dtype=np.float32)
     filled = np.zeros(S * S, dtype=bool)

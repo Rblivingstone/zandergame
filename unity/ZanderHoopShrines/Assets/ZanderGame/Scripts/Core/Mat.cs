@@ -26,6 +26,19 @@ namespace ZanderGame
             }
         }
 
+        /// <summary>The anime cel shader (ZanderGame/Toon) when available, else Standard.</summary>
+        public static Shader Toon => ToonStyler.Toon != null ? ToonStyler.Toon : Std;
+
+        /// <summary>Ink outline width for code-built boxes, pillars, towers...</summary>
+        public static float DefaultOutline = 0.0014f;
+
+        static Material NewToon(Color c, float outline)
+        {
+            var m = new Material(Toon) { color = c };
+            if (m.HasProperty("_OutlineWidth")) m.SetFloat("_OutlineWidth", outline);
+            return m;
+        }
+
         public static Shader Unlit
         {
             get
@@ -47,7 +60,8 @@ namespace ZanderGame
         {
             string key = "c" + c + smoothness + metallic;
             if (Cache.TryGetValue(key, out var m) && m != null) return m;
-            m = new Material(Std) { color = c, name = "ZG_" + ColorUtility.ToHtmlStringRGB(c) };
+            m = NewToon(c, DefaultOutline);
+            m.name = "ZG_" + ColorUtility.ToHtmlStringRGB(c);
             if (m.HasProperty("_Glossiness")) m.SetFloat("_Glossiness", smoothness);
             if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smoothness);
             if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", metallic);
@@ -61,14 +75,16 @@ namespace ZanderGame
         /// <summary>A NEW (not cached) glowing material - safe to animate per object.</summary>
         public static Material Glow(Color baseColor, Color emission, float intensity = 1.5f)
         {
-            var m = new Material(Std) { color = baseColor, name = "ZG_Glow" };
+            var m = NewToon(baseColor, 0f);
+            m.name = "ZG_Glow";
             SetEmission(m, emission * intensity);
             return m;
         }
 
         public static Material Unique(Color c, float smoothness = 0.3f)
         {
-            var m = new Material(Std) { color = c, name = "ZG_Unique" };
+            var m = NewToon(c, DefaultOutline);
+            m.name = "ZG_Unique";
             if (m.HasProperty("_Glossiness")) m.SetFloat("_Glossiness", smoothness);
             return m;
         }
@@ -105,9 +121,11 @@ namespace ZanderGame
             m.renderQueue = 3000;
         }
 
-        public static Material Textured(Texture2D tex, Vector2 tiling, float smoothness = 0.35f)
+        public static Material Textured(Texture2D tex, Vector2 tiling, float smoothness = 0.35f, float outline = 0f)
         {
-            var m = new Material(Std) { mainTexture = tex, name = "ZG_Tex_" + tex.name };
+            var m = NewToon(UnityEngine.Color.white, outline);
+            m.mainTexture = tex;
+            m.name = "ZG_Tex_" + tex.name;
             m.mainTextureScale = tiling;
             if (m.HasProperty("_Glossiness")) m.SetFloat("_Glossiness", smoothness);
             return m;
