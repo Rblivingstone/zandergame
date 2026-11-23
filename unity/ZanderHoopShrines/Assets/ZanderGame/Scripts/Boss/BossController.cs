@@ -194,6 +194,7 @@ namespace ZanderGame
             PlayOnce("Stomp", 1.3f);
             yield return new WaitForSeconds(0.6f);
             GameAudio.Play("stomp");
+            Rumble.Pulse(0.6f, 0.15f, 0.35f);
             GameManager.Instance?.Cam?.Shake(0.5f);
             Shockwave.Spawn(transform.position, Contest.Phase >= 3 ? 8f : 6.5f);
             Effects.Burst(transform.position + Vector3.up * 0.2f, new Color(0.8f, 0.6f, 1f), 30, 6f, 0.2f, 0.7f);

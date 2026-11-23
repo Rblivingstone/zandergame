@@ -13,7 +13,9 @@ namespace ZanderGame
 
         public static GameManager Instance { get; private set; }
         public GameState State { get; private set; } = GameState.Title;
-        public bool IsPlaying => State == GameState.Playing;
+        /// <summary>False on the frame the game (re)starts, so the button that closed a menu doesn't also jump/shoot.</summary>
+        public bool IsPlaying => State == GameState.Playing && Time.frameCount != _unpausedFrame;
+        int _unpausedFrame = -1;
 
         public List<Room> Rooms { get; private set; }
         public Room CurrentRoom { get; private set; }
@@ -68,6 +70,7 @@ namespace ZanderGame
             Cam.Target = Player.transform;
             Cam.SnapBehind(0);
 
+            gameObject.AddComponent<ControlsDriver>();
             gameObject.AddComponent<Hud>();
         }
 
@@ -103,7 +106,7 @@ namespace ZanderGame
                     return;
                 case GameState.Paused:
                     SetCursor(false);
-                    if (Controls.PauseDown) Resume();
+                    if (Controls.PauseDown || Controls.MenuBack) Resume();
                     return;
                 case GameState.Victory:
                     SetCursor(false);
@@ -151,6 +154,7 @@ namespace ZanderGame
                 GameAudio.Play("solve");
                 Hud.Banner("SHRINE CLEAR!  (" + ShrinesCleared + "/" + ShrineCount + ")", 3f);
                 Effects.Confetti(r.Exit.transform.position + Vector3.up * 4.5f, 80);
+                Rumble.Pulse(0.5f, 0.5f, 0.6f);
                 Player.Anim?.Trigger("Celebrate");
             }
         }
@@ -164,6 +168,7 @@ namespace ZanderGame
         public void StartGame()
         {
             State = GameState.Playing;
+            _unpausedFrame = Time.frameCount;
             Hud.Banner("ZANDER'S HOOP SHRINES", 2.5f);
             GameAudio.Play("whistle");
         }
@@ -177,6 +182,7 @@ namespace ZanderGame
         public void Resume()
         {
             State = GameState.Playing;
+            _unpausedFrame = Time.frameCount;
             Time.timeScale = 1f;
         }
 

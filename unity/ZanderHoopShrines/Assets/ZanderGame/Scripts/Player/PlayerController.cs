@@ -188,7 +188,7 @@ namespace ZanderGame
                 }
             }
             if (_nearInteract != null) InteractPrompt = _nearInteract.Prompt;
-            else if (Balls != null && Balls.PlateBallNearby != null) InteractPrompt = "Press E to pick up the ball";
+            else if (Balls != null && Balls.PlateBallNearby != null) InteractPrompt = "Press {USE} to pick up the ball";
 
             if (frozen || !Controls.InteractDown) return;
             if (_nearInteract != null) _nearInteract.Interact(this);
@@ -226,6 +226,7 @@ namespace ZanderGame
             Anim?.OnHit();
             GameAudio.Play("bounce", 1f, 0.6f);
             Cam?.Shake(0.4f);
+            Rumble.Pulse(1f, 0.8f, 0.4f);
         }
 
         public void Hang(Vector3 at, float seconds)

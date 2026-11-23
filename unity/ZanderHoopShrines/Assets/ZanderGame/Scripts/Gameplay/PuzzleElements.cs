@@ -253,6 +253,7 @@ namespace ZanderGame
             p.Launch(v);
             _squash = 1f;
             GameAudio.PlayAt("boing", transform.position, 1f);
+            Rumble.Pulse(0.4f, 0.3f, 0.18f);
             Effects.Burst(transform.position + Vector3.up * 0.3f, Mat.Hex("#3CE07A"), 16, 4f);
         }
 
@@ -458,13 +459,14 @@ namespace ZanderGame
         }
 
         public override Vector3 Point => transform.position;
-        public override string Prompt => Rotatable ? "Press E to turn the Rebound Board" : null;
+        public override string Prompt => Rotatable ? "Press {USE} to turn the Rebound Board" : null;
 
         public override void Interact(PlayerController player)
         {
             if (!Rotatable) return;
             _targetYaw += 45f;
             GameAudio.PlayAt("turn", transform.position, 0.9f);
+            Rumble.Pulse(0f, 0.3f, 0.08f);
         }
 
         /// <summary>The thing this board would fire at (a hoop or another board), or null.</summary>

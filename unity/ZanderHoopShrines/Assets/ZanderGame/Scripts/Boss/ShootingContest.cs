@@ -131,6 +131,7 @@ namespace ZanderGame
             GameAudio.Play("cheer");
             _cheer = 3f;
             Hud.Banner("YOU BEAT KING SWAT!", 3f);
+            Rumble.Pulse(0.7f, 0.7f, 0.9f);
             PlayerController.Instance?.Anim?.Trigger("Celebrate");
             for (int i = 0; i < 4; i++)
             {

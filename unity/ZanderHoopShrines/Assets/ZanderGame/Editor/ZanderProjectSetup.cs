@@ -14,7 +14,7 @@ namespace ZanderGame.EditorTools
     [InitializeOnLoad]
     public static class ZanderProjectSetup
     {
-        const string ScenePath = "Assets/Scenes/Main.unity";
+        public const string ScenePath = "Assets/Scenes/Main.unity";
 
         static ZanderProjectSetup()
         {
@@ -45,14 +45,49 @@ namespace ZanderGame.EditorTools
                 ImportAssetOptions.ImportRecursive | ImportAssetOptions.ForceUpdate);
         }
 
+        /// <summary>Everything a build needs: scene, shaders, input handling.</summary>
+        public static void PrepareForBuild()
+        {
+            Setup(false);
+        }
+
+        /// <summary>The game reads the controller through the classic Input Manager
+        /// (axes in ProjectSettings/InputManager.asset). If the project was switched to
+        /// "Input System Package (New)" only, switch it to "Both".</summary>
+        static void EnsureInputHandling()
+        {
+            var objs = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset");
+            if (objs == null || objs.Length == 0) return;
+            var so = new SerializedObject(objs[0]);
+            var prop = so.FindProperty("activeInputHandler");
+            if (prop == null || prop.intValue != 1) return;   // 0 = old, 1 = new only, 2 = both
+            prop.intValue = 2;
+            so.ApplyModifiedProperties();
+            Debug.LogWarning("[Zander] Active Input Handling set to 'Both' so the controller works. Restart Unity to apply.");
+        }
+
         static void Setup(bool verbose)
         {
+            EnsureInputHandling();
             foreach (var s in new[] { "Standard", "ZanderGame/Toon", "Sprites/Default", "Particles/Standard Unlit" })
                 AlwaysInclude(s);
             EnsureScene();
+            ConfigureIcon();
             if (verbose)
                 EditorUtility.DisplayDialog("Zander's Hoop Shrines",
-                    "Project ready!\n\nOpen Assets/Scenes/Main.unity and press Play.", "Let's go!");
+                    "Project ready!\n\nOpen Assets/Scenes/Main.unity and press Play.\nTo make a game for Windows: Zander > Build for Windows.",
+                    "Let's go!");
+        }
+
+        static void ConfigureIcon()
+        {
+            const string path = "Assets/ZanderGame/Icon/ZanderIcon.png";
+            var ti = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (ti == null || ti.textureType == TextureImporterType.Default && ti.isReadable) return;
+            ti.textureType = TextureImporterType.Default;
+            ti.isReadable = true;
+            ti.mipmapEnabled = false;
+            ti.SaveAndReimport();
         }
 
         static void AlwaysInclude(string shaderName)

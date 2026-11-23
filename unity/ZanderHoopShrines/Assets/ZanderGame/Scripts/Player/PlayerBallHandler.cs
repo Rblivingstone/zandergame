@@ -318,6 +318,7 @@ namespace ZanderGame
             ball.Release(from, v, BallOwner.Player);
             _pc.Anim?.Trigger("Shoot");
             GameAudio.Play("throw", 0.8f);
+            Rumble.Pulse(0.1f, q == ShotQuality.Perfect ? 0.5f : 0.2f, 0.1f);
             switch (q)
             {
                 case ShotQuality.Perfect: Hud.Toast("PERFECT!", new Color(0.4f, 1f, 0.5f), 0.9f); break;

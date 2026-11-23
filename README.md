@@ -16,25 +16,48 @@ contest on the Championship Court.
 The whole game (courts, puzzles, characters, boss, UI and sounds) builds itself
 at runtime, so **any scene works**: just press Play.
 
-> If Unity asks about the *Input System*, choose the **old Input Manager**
-> (or **Both**): *Edit → Project Settings → Player → Active Input Handling*.
+> The game reads the controller through Unity's classic Input Manager (the axes
+> are in `ProjectSettings/InputManager.asset`). If *Active Input Handling* is set
+> to the new Input System only, the setup step switches it to **Both**. Restart Unity when it asks.
 
 ## Controls
 
-| Action | Keyboard / mouse | Gamepad |
+Made for an **Xbox-layout controller on Windows**, such as the GameSir Kaleid
+wired controller: plug it in and play. Keyboard and mouse work too. On-screen
+prompts switch automatically to whichever one you used last, and the
+controller rumbles on dunks, stomps and shrine clears.
+
+| Action | Controller | Keyboard / mouse |
 |---|---|---|
-| Move | WASD / arrows | Left stick |
-| Look | Mouse | |
-| Jump | Space | A |
-| Sprint | Left Shift | L3 |
-| **Shoot** | Hold left mouse (or F), release in the **green** zone | X |
-| **Dunk** | Press Shoot in mid-air next to a hoop | X |
-| Drop / place ball on a plate | Q / right mouse | B |
-| Use (turn boards, take a ball off a plate) | E | Y |
-| Hint | H | Back |
-| Super Shots (every shot is perfect) | Tab | |
-| Restart room | R | |
-| Pause | Esc | Start |
+| Move | Left stick (or D-pad) | WASD / arrows |
+| Look | Right stick | Mouse |
+| Camera behind Zander | RB (or R3) | – |
+| Jump | A | Space |
+| Sprint | Hold LT (or L3) | Left Shift |
+| **Shoot** | Hold **RT** (or X), release in the **green** zone | Hold left mouse (or F) |
+| **Dunk** | RT in mid-air next to a hoop | Same as Shoot |
+| Drop / place ball on a plate | B | Q / right mouse |
+| Use (turn boards, take a ball off a plate) | Y | E |
+| Hint | LB | H |
+| Super Shots (every shot is perfect) | View (two squares) | Tab |
+| Pause menu (restart room, quit) | Menu (three lines) | Esc |
+| Restart room | Pause menu | R |
+
+While Zander runs, the camera slowly swings in behind him unless you're using the right stick.
+
+## One-click Windows build
+
+**From the Unity editor:** menu **Zander → Build for Windows (one click)**.
+**Without opening Unity:** close the project in the Unity editor, then double-click **`build_windows.bat`** in the repo root.
+The script finds Unity through Unity Hub.
+
+Either way you get `unity/ZanderHoopShrines/Builds/Windows/ZanderHoopShrines.exe`
+plus a zip of the whole folder (`Builds/ZanderHoopShrines-Windows.zip`). Copy the
+folder or the zip to any Windows 10/11 PC, plug in the controller and
+double-click the `.exe`. **Zander → Build and Run on this PC** builds the game and launches it straight away.
+
+> The Windows build needs **Windows Build Support** for your Unity version.
+> On a Windows PC it comes with the editor; on a Mac, add it in Unity Hub → Installs → Add modules.
 
 ## The game
 

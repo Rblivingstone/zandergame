@@ -183,6 +183,8 @@ namespace ZanderGame
             }
 
             GameAudio.PlayAt(ball.IsDunk ? "dunk" : "swish", RimCenter, 1f);
+            if (ball.LastThrower == BallOwner.Player)
+                Rumble.Pulse(ball.IsDunk ? 0.8f : 0.15f, ball.IsDunk ? 1f : 0.45f, ball.IsDunk ? 0.3f : 0.15f);
             Effects.Swish(RimCenter + Vector3.down * 0.3f, HoopColor);
 
             if (Mode == HoopMode.Latch)

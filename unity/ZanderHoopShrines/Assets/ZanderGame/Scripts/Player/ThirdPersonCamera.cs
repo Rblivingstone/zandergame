@@ -15,6 +15,8 @@ namespace ZanderGame
         float _shake;
         float _currentDist;
         Vector3 _smoothedPivot;
+        float _stickIdle;
+        bool _recentering;
 
         public void SnapBehind(float yaw)
         {
@@ -30,12 +32,42 @@ namespace ZanderGame
             if (Target == null) return;
             var gm = GameManager.Instance;
             bool canLook = gm == null || gm.IsPlaying;
-            if (canLook && Cursor.lockState == CursorLockMode.Locked)
+            float dt = Time.deltaTime;
+            if (canLook)
             {
-                var look = Controls.Look;
-                Yaw += look.x * Sensitivity;
-                Pitch = Mathf.Clamp(Pitch - look.y * Sensitivity, -25f, 70f);
-                Distance = Mathf.Clamp(Distance - Controls.Zoom * 8f, MinDistance, MaxDistance);
+                if (Cursor.lockState == CursorLockMode.Locked)
+                {
+                    var mouse = Controls.MouseLook;
+                    Yaw += mouse.x * Sensitivity;
+                    Pitch -= mouse.y * Sensitivity;
+                    Distance = Mathf.Clamp(Distance - Controls.Zoom * 8f, MinDistance, MaxDistance);
+                }
+                // controller: right stick (with a gentle response curve for fine aiming)
+                var stick = Controls.StickLook;
+                var curved = stick * stick.magnitude;
+                Yaw += curved.x * Controls.LookSpeed * dt;
+                Pitch -= curved.y * Controls.LookSpeed * 0.65f * dt;
+                if (stick.sqrMagnitude > 0.01f) _stickIdle = 0f;
+                else _stickIdle += dt;
+
+                var player = PlayerController.Instance;
+                if (Controls.RecenterDown && player != null) _recentering = true;
+                if (_recentering && player != null)
+                {
+                    float target = Quaternion.LookRotation(player.Forward).eulerAngles.y;
+                    Yaw = Mathf.MoveTowardsAngle(Yaw, target, 540f * dt);
+                    Pitch = Mathf.MoveTowards(Pitch, 18f, 120f * dt);
+                    if (Mathf.Abs(Mathf.DeltaAngle(Yaw, target)) < 0.5f) _recentering = false;
+                }
+                else if (Controls.UsingGamepad && _stickIdle > 1.0f && player != null && player.HorizontalSpeed > 2f &&
+                         !(player.Balls != null && player.Balls.Charging))
+                {
+                    // auto-follow: drift behind Zander while he runs (keeps little players oriented)
+                    float target = Quaternion.LookRotation(player.Forward).eulerAngles.y;
+                    float delta = Mathf.DeltaAngle(Yaw, target);
+                    if (Mathf.Abs(delta) < 150f) Yaw += delta * Mathf.Clamp01(1.2f * dt);
+                }
+                Pitch = Mathf.Clamp(Pitch, -25f, 70f);
             }
 
             var pivotTarget = Target.position + Vector3.up * 1.6f;

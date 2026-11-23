@@ -71,6 +71,7 @@ namespace ZanderGame
 
         void Text(Rect r, string s, GUIStyle st, Color c, bool shadow = false)
         {
+            s = Controls.Expand(s);
             if (shadow)
             {
                 var sh = new GUIStyle(st);
@@ -122,15 +123,20 @@ namespace ZanderGame
 
             float bw = 900, bx = (W - bw) / 2, by = H * 0.5f;
             Fill(new Rect(bx, by, bw, 300), Panel);
-            string controls =
-                "<b>MOVE</b>  WASD / arrows        <b>JUMP</b>  Space        <b>SPRINT</b>  Shift\n" +
-                "<b>SHOOT</b>  hold Left Mouse (or F) - let go in the <color=#6CFF8A>GREEN</color> zone!\n" +
-                "<b>DUNK</b>  press Shoot while jumping next to a hoop\n" +
-                "<b>DROP / PLACE BALL</b>  Q        <b>USE / TURN BOARD</b>  E\n" +
-                "<b>HINT</b>  H        <b>SUPER SHOTS</b>  Tab        <b>RESTART ROOM</b>  R        <b>PAUSE</b>  Esc";
+            string controls = Controls.UsingGamepad
+                ? "<b>MOVE</b>  Left stick        <b>LOOK</b>  Right stick        <b>JUMP</b>  A        <b>SPRINT</b>  hold LT\n" +
+                  "<b>SHOOT</b>  hold RT - let go in the <color=#6CFF8A>GREEN</color> zone!\n" +
+                  "<b>DUNK</b>  RT while jumping next to a hoop        <b>CAMERA BEHIND</b>  RB\n" +
+                  "<b>DROP / PLACE BALL</b>  B        <b>USE / TURN BOARD</b>  Y\n" +
+                  "<b>HINT</b>  LB        <b>SUPER SHOTS</b>  View        <b>PAUSE</b>  Menu"
+                : "<b>MOVE</b>  WASD / arrows        <b>JUMP</b>  Space        <b>SPRINT</b>  Shift\n" +
+                  "<b>SHOOT</b>  hold Left Mouse (or F) - let go in the <color=#6CFF8A>GREEN</color> zone!\n" +
+                  "<b>DUNK</b>  press Shoot while jumping next to a hoop\n" +
+                  "<b>DROP / PLACE BALL</b>  Q        <b>USE / TURN BOARD</b>  E\n" +
+                  "<b>HINT</b>  H        <b>SUPER SHOTS</b>  Tab        <b>RESTART ROOM</b>  R        <b>PAUSE</b>  Esc";
             Text(new Rect(bx + 30, by + 20, bw - 60, 270), controls, _small, Color.white);
             float pulse = 0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 4f);
-            Text(new Rect(0, by + 330, W, 60), "Click or press SPACE to start!", _med, new Color(1, 1, 1, pulse));
+            Text(new Rect(0, by + 330, W, 60), Controls.UsingGamepad ? "Press A to start!" : "Click or press SPACE to start!", _med, new Color(1, 1, 1, pulse));
             var st = new GUIStyle(_center);
             st.alignment = TextAnchor.MiddleCenter;
             Text(new Rect(0, H - 60, W, 40), "Beat 3 shrines, then win the shooting contest against KING SWAT!", st, GoldC);
@@ -151,7 +157,7 @@ namespace ZanderGame
 
         void DrawTopRight(GameManager gm)
         {
-            string s = "H: Hint    R: Restart room    Tab: Super Shots " + (PlayerBallHandler.SuperShots ? "<color=#6CFF8A>ON</color>" : "OFF");
+            string s = "{HINT}: Hint    {PAUSE}: Menu    {EASY}: Super Shots " + (PlayerBallHandler.SuperShots ? "<color=#6CFF8A>ON</color>" : "OFF");
             var st = new GUIStyle(_small) { alignment = TextAnchor.UpperRight };
             Text(new Rect(W - 720, 24, 700, 30), s, st, new Color(1, 1, 1, 0.85f));
             int mins = (int)(gm.PlayTime / 60), secs = (int)(gm.PlayTime % 60);
@@ -197,7 +203,7 @@ namespace ZanderGame
             if (PlayerBallHandler.SuperShots) Zone(0, 1, new Color(0.3f, 0.95f, 0.45f));
             float nx = x + b.Power * w;
             Fill(new Rect(nx - 4, y - 12, 8, h + 24), Color.white);
-            string label = b.AimTarget != null ? "Let go in the GREEN!" : "No target - free throw!";
+            string label = b.AimTarget != null ? "Let go of {SHOOT} in the GREEN!" : "No target - free throw!";
             Text(new Rect(x, y + h + 10, w, 30), label, _center, Color.white, true);
         }
 
@@ -206,7 +212,7 @@ namespace ZanderGame
             var p = gm.Player;
             if (p == null) return;
             string s = null;
-            if (p.Balls != null && p.Balls.DunkHoop != null) s = "PRESS SHOOT TO DUNK!";
+            if (p.Balls != null && p.Balls.DunkHoop != null) s = "PRESS {SHOOT} TO DUNK!";
             else if (!string.IsNullOrEmpty(p.InteractPrompt)) s = p.InteractPrompt;
             if (s == null) return;
             float w = 640, x = (W - w) / 2, y = H - 110;
@@ -220,7 +226,7 @@ namespace ZanderGame
             if (r == null || gm.HintIndex < 0 || gm.HintIndex >= r.Hints.Length) return;
             float w = 560, x = 20, y = 215;
             Fill(new Rect(x, y, w, 130), new Color(0.15f, 0.1f, 0.02f, 0.8f));
-            Text(new Rect(x + 16, y + 8, w - 30, 30), "HINT " + (gm.HintIndex + 1) + "/" + r.Hints.Length + "  (press H for more)",
+            Text(new Rect(x + 16, y + 8, w - 30, 30), "HINT " + (gm.HintIndex + 1) + "/" + r.Hints.Length + "  (press {HINT} for more)",
                 _small, GoldC);
             Text(new Rect(x + 16, y + 40, w - 30, 90), r.Hints[gm.HintIndex], _small, Color.white);
         }
@@ -269,21 +275,61 @@ namespace ZanderGame
             }
         }
 
+        int _pauseIndex;
+        static readonly string[] PauseItems = { "Resume", "Super Shots", "Restart Room", "Quit" };
+
+        void Update()
+        {
+            var gm = GameManager.Instance;
+            if (gm == null || gm.State != GameManager.GameState.Paused)
+            {
+                _pauseIndex = 0;
+                return;
+            }
+            int nav = Controls.MenuNav;
+            if (nav != 0)
+            {
+                _pauseIndex = (_pauseIndex + nav + PauseItems.Length) % PauseItems.Length;
+                GameAudio.Play("tick");
+            }
+            if (Controls.MenuConfirm) ActivatePause(gm, _pauseIndex);
+        }
+
+        void ActivatePause(GameManager gm, int i)
+        {
+            GameAudio.Play("click");
+            switch (i)
+            {
+                case 0: gm.Resume(); break;
+                case 1: PlayerBallHandler.SuperShots = !PlayerBallHandler.SuperShots; break;
+                case 2:
+                    gm.Resume();
+                    gm.RestartRoom();
+                    break;
+                case 3: gm.QuitGame(); break;
+            }
+        }
+
         void DrawPause(GameManager gm)
         {
             Fill(new Rect(0, 0, W, H), new Color(0, 0, 0, 0.6f));
             Text(new Rect(0, H * 0.2f, W, 100), "PAUSED", _big, Color.white, true);
-            float bw = 420, bx = (W - bw) / 2, by = H * 0.38f;
+            float bw = 460, bx = (W - bw) / 2, by = H * 0.38f;
             var bs = new GUIStyle(GUI.skin.button) { fontSize = 30, font = _small.font };
-            if (GUI.Button(new Rect(bx, by, bw, 70), "Resume", bs)) gm.Resume();
-            if (GUI.Button(new Rect(bx, by + 90, bw, 70), "Super Shots: " + (PlayerBallHandler.SuperShots ? "ON" : "OFF"), bs))
-                PlayerBallHandler.SuperShots = !PlayerBallHandler.SuperShots;
-            if (GUI.Button(new Rect(bx, by + 180, bw, 70), "Restart Room", bs))
+            for (int i = 0; i < PauseItems.Length; i++)
             {
-                gm.Resume();
-                gm.RestartRoom();
+                var r = new Rect(bx, by + i * 90, bw, 70);
+                if (i == _pauseIndex) Fill(new Rect(r.x - 8, r.y - 8, r.width + 16, r.height + 16), GoldC);
+                string label = i == 1 ? "Super Shots: " + (PlayerBallHandler.SuperShots ? "ON" : "OFF") : PauseItems[i];
+                if (GUI.Button(r, label, bs))
+                {
+                    _pauseIndex = i;
+                    ActivatePause(gm, i);
+                }
             }
-            if (GUI.Button(new Rect(bx, by + 270, bw, 70), "Quit", bs)) gm.QuitGame();
+            Text(new Rect(0, by + 380, W, 40),
+                Controls.UsingGamepad ? "D-pad: choose    A: select    B: back" : "Click a button, or press Esc to resume", _center,
+                new Color(1, 1, 1, 0.8f));
         }
 
         void DrawVictory(GameManager gm)
@@ -296,7 +342,7 @@ namespace ZanderGame
             Text(new Rect(0, H * 0.42f, W, 50), string.Format("Time: {0}:{1:00}      Final score: {2} - {3}", mins, secs,
                 gm.Contest.PlayerScore, gm.Contest.BossScore), _med, new Color(0.7f, 0.9f, 1f));
             float pulse = 0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 4f);
-            Text(new Rect(0, H * 0.6f, W, 60), "Press SPACE to keep shooting hoops!", _med, new Color(1, 1, 1, pulse));
+            Text(new Rect(0, H * 0.6f, W, 60), "Press {START} to keep shooting hoops!", _med, new Color(1, 1, 1, pulse));
         }
     }
 }

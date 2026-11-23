@@ -167,15 +167,15 @@ namespace ZanderGame
             room.Hints = new[]
             {
                 "Walk into a basketball to pick it up.",
-                "Hold the Left Mouse button (or F). Let go when the meter is in the GREEN zone for a PERFECT shot!",
-                "Jump under a hoop while holding the ball and press SHOOT in the air to DUNK!",
+                "Hold {SHOOT}. Let go when the meter is in the GREEN zone for a PERFECT shot!",
+                "Jump ({JUMP}) under a hoop while holding the ball and press {SHOOT} in the air to DUNK!",
                 "When you're ready, walk through the door to the north."
             };
             var hoop = Hoop.Create("Practice Hoop", a, new Vector3(-6.4f, 0, 8), 90, Orange, HoopMode.Counter, "PRACTICE");
             room.Hoops.Add(hoop);
             room.Dispensers.Add(BallDispenser.Create("PracticeRack", a, new Vector3(-2, 0, 6.5f), 2));
             Sign(a, "ZANDER'S\nHOOP SHRINES", new Vector3(0, 5.6f, z1 - 0.12f), 0.9f, Gold, 0);
-            Sign(a, "MOVE: WASD   JUMP: SPACE   SPRINT: SHIFT\nSHOOT: HOLD LEFT MOUSE (or F)\nDROP / PLACE BALL: Q   USE: E   HINT: H",
+            Sign(a, "CONTROLLER:  MOVE: LEFT STICK   LOOK: RIGHT STICK   JUMP: A\nSHOOT: HOLD RT   SPRINT: LT   DROP: B   USE: Y   HINT: LB\nKEYBOARD:  WASD  SPACE  SHIFT  LEFT MOUSE  Q  E  H",
                 new Vector3(x1 - 0.12f, 3.2f, 7), 0.32f, Color.white, 90);
             Sign(a, "Beat 3 shrines...\nthen beat KING SWAT!", new Vector3(x0 + 0.12f, 3.4f, 4), 0.4f, Gold, -90);
             Corridor(a, 14, 18, 0);
@@ -200,7 +200,7 @@ namespace ZanderGame
             {
                 "The ball is locked in a glass cage. Stand on the BLUE plate to open it.",
                 "Shoot the ball into the hoop to light it up.",
-                "Get a ball again (the rack makes a new one) and stand by the ORANGE plate. Press Q to place it.",
+                "Get a ball again (the rack makes a new one) and stand by the ORANGE plate. Press {DROP} to place it.",
                 "When both crystals over the gate glow, the gate opens!"
             };
 
@@ -265,7 +265,7 @@ namespace ZanderGame
             room.Hints = new[]
             {
                 "Grab a ball, then run onto the green BOUNCE pad. It throws you way up high!",
-                "While flying next to the purple DUNK ONLY hoop, press SHOOT to slam dunk it!",
+                "While flying next to the purple DUNK ONLY hoop, press {SHOOT} to slam dunk it!",
                 "The dunk powers the lift on the right side. Ride it up to the ledge.",
                 "Timed hoops only stay lit for 12 seconds. Light the one on the ledge, grab another ball, then shoot the one far below!",
                 "Tip: the rack on the ledge makes a new ball quickly. Hold SHOOT and aim the camera at the hoop."
@@ -361,10 +361,10 @@ namespace ZanderGame
             room.Objective = "Raise the bridge, then score GREEN, RED, BLUE in order. Use the Rebound Boards!";
             room.Hints = new[]
             {
-                "Put a ball on the ORANGE plate (Q) to raise the bridge. It only stays up while the ball is there!",
+                "Put a ball on the ORANGE plate ({DROP}) to raise the bridge. It only stays up while the ball is there!",
                 "Look at the ORDER totem: 1 = GREEN, 2 = RED, 3 = BLUE.",
                 "GREEN and BLUE can't be hit directly. Shoot a REBOUND BOARD and it fires the ball for you.",
-                "Stand next to a board and press E to turn it. When its laser turns GREEN it's aiming at a target.",
+                "Stand next to a board and press {USE} to turn it. When its laser turns GREEN it's aiming at a target.",
                 "Shoot the wrong hoop and the order resets - no worries, just try again!"
             };
 
@@ -433,7 +433,7 @@ namespace ZanderGame
                 "When King Swat STOMPS, jump over the shockwave ring!",
                 "When he puts his arms up he will SWAT your shot - wait until he stops blocking.",
                 "Later the hoop starts moving - aim assist will lead it for you. Time your release!",
-                "Struggling? Press Tab for Super Shots."
+                "Struggling? Press {EASY} for Super Shots."
             };
 
             var arena = new BossArena { Room = room, CourtCenter = new Vector3(0, 0, 150), BossSpawn = new Vector3(0, 0, 157),
