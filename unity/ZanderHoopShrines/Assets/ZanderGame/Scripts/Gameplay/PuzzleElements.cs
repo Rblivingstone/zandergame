@@ -507,6 +507,22 @@ namespace ZanderGame
             return best;
         }
 
+        /// <summary>
+        /// Catch zone in front of the board: a ball inside it that is travelling toward the
+        /// face gets redirected, even if it would only have clipped the edge.
+        /// </summary>
+        public bool TryCatch(Basketball ball, Vector3 pos)
+        {
+            if (Time.time < _cooldown || ball.IsHeld || ball.IsDocked) return false;
+            var local = _pivot.InverseTransformPoint(pos);
+            if (Mathf.Abs(local.x) > 1.0f || Mathf.Abs(local.y - BoardCenterHeight) > 1.0f) return false;
+            if (local.z < -0.1f || local.z > 0.75f) return false;
+            if (Vector3.Dot(ball.Body.GetVelocity(), Facing) >= -0.5f) return false;   // must be coming at the face
+            if (FindTarget(out _) == null) return false;   // not lined up: let it bounce off normally
+            OnBallHit(ball);
+            return true;
+        }
+
         public void OnBallHit(Basketball ball)
         {
             if (Time.time < _cooldown || ball.IsHeld) return;

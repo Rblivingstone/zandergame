@@ -191,6 +191,10 @@ namespace ZanderGame
             }
             _lastPos = cur;
 
+            // Rebound Boards catch any ball arriving at their front (no exact collision needed)
+            foreach (var board in ReboundBoard.AllBoards)
+                if (board != null && board.TryCatch(this, cur)) break;
+
             if (cur.y < -6f) LostBall();
             if (_despawnAt > 0 && Time.time > _despawnAt) Poof();
         }

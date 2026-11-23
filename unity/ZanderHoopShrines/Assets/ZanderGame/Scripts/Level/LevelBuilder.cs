@@ -580,11 +580,7 @@ namespace ZanderGame
             var rb2 = ReboundBoard.Create("Rebound Board B", a, new Vector3(-2.5f, 0, 117.5f), 180);
             rb1.ConeDegrees = 20f;
             rb2.ConeDegrees = 20f;
-            foreach (var rb in new[] { rb1, rb2 })
-                Build.Label("TURN ME\n(Y / E)", rb.transform, new Vector3(0, 3.5f, 0), 0.35f, Mat.Hex("#4AD7FF"), 0, true);
-            // tell the player these two hoops need a bank shot
-            Build.Label("BANK SHOT ONLY", blue.transform, new Vector3(0, 5.3f, -0.45f), 0.4f, Mat.Hex("#4AA3FF"), 0, true);
-            Build.Label("BANK SHOT ONLY", green.transform, new Vector3(0, 5.3f, -0.45f), 0.4f, Mat.Hex("#3CE07A"), 0, true);
+
 
             var seqGo = new GameObject("HoopSequence");
             seqGo.transform.SetParent(a, false);

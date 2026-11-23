@@ -23,8 +23,6 @@ namespace ZanderGame
         public Hoop DunkHoop { get; private set; }
         public Basketball PlateBallNearby { get; private set; }
 
-        /// <summary>Holding a ball near a hoop that only accepts bank shots (shows a tip).</summary>
-        public Hoop BankShotHoopNearby { get; private set; }
         public string AimName
         {
             get
@@ -70,10 +68,7 @@ namespace ZanderGame
             if (Dunking) return;
             UpdateAim();
             UpdateDunk();
-            BankShotHoopNearby = null;
-            foreach (var h in Hoop.All)
-                if (h != null && h.RequiresRebound && Flat(h.RimCenter - transform.position) < 8f)
-                    BankShotHoopNearby = h;
+
 
             if (Controls.DunkDown && !_pc.IsStunned && !Charging)
             {
@@ -216,6 +211,10 @@ namespace ZanderGame
                 var target = rb.FaceCenter;
                 if (Flat(target - transform.position) > 30f) continue;
                 float ang = Vector3.Angle(camFwd, target - camPos);
+                // a board whose laser is locked onto a bank-shot hoop can also be picked by
+                // aiming at THAT hoop: the ball goes off the board and in
+                if (rb.FindTarget(out var via) is Hoop bankHoop && bankHoop.RequiresRebound)
+                    ang = Mathf.Min(ang, Vector3.Angle(camFwd, via - camPos));
                 if (ang >= best || !Visible(from, target, rb.transform)) continue;
                 best = ang;
                 AimTarget = rb;
@@ -411,9 +410,9 @@ namespace ZanderGame
             }
             else if (AimTarget is ReboundBoard board)
             {
+                // bank shots are about solving the puzzle, not timing: always on target
                 var target = board.FaceCenter + board.Facing * 0.1f;
-                if (q == ShotQuality.Short) target += Vector3.down * 1.4f;
-                if (q == ShotQuality.Long) target += Vector3.up * 1.3f;
+                q = ShotQuality.Perfect;
                 v = Ballistics.Solve(from, target, Mathf.Clamp(Flat(target - from) * 0.12f, 0.6f, 2.5f), out _);
             }
             else

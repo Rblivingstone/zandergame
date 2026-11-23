@@ -215,10 +215,6 @@ namespace ZanderGame
             if (p.Balls != null && p.Balls.RimHanging) s = "Hold {DUNK} to hang on the rim!";
             else if (p.Balls != null && p.Balls.DunkHoop != null) s = "Press {DUNK} to DUNK!";
             else if (!string.IsNullOrEmpty(p.InteractPrompt)) s = p.InteractPrompt;
-            else if (p.Balls != null && p.Balls.BankShotHoopNearby != null && !(p.Balls.AimTarget is ReboundBoard))
-                s = "BANK SHOT ONLY: turn a Rebound Board ({USE}) until its laser is GREEN, then shoot the board!";
-            else if (p.Balls != null && p.Balls.AimTarget is ReboundBoard rb && rb.FindTarget(out _) != null)
-                s = "Laser is GREEN - hold {SHOOT} and hit the board!";
             if (s == null) return;
             float w = 980, x = (W - w) / 2, y = H - 110;
             Fill(new Rect(x, y, w, 50), Panel);
