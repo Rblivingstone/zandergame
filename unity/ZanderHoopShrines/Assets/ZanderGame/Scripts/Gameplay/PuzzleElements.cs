@@ -378,6 +378,7 @@ namespace ZanderGame
         Transform _pivot;
         Transform _face;
         float _targetYaw;
+        Component _lockedOn;
         LineRenderer _laser;
         Material _laserMat;
         float _cooldown;
@@ -462,10 +463,56 @@ namespace ZanderGame
         public override Vector3 Point => transform.position;
         public override string Prompt => Rotatable ? "Press {USE} to turn the Rebound Board" : null;
 
+        public const float TargetRange = 18f;
+
+        static float Bearing(Vector3 d) => Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
+
+        /// <summary>A board can only feed a hoop from in front of (or beside) it - never through the backboard.</summary>
+        static bool CanFeed(Hoop h, Vector3 from)
+        {
+            var toBoard = from - h.RimCenter;
+            toBoard.y = 0;
+            var fwd = h.transform.forward;
+            fwd.y = 0;
+            return toBoard.sqrMagnitude < 0.01f || Vector3.Dot(fwd.normalized, toBoard.normalized) > -0.2f;
+        }
+
+        /// <summary>
+        /// Each press swings the board to point EXACTLY at the next target clockwise
+        /// (a hoop or another board within range), so the laser always locks on.
+        /// </summary>
         public override void Interact(PlayerController player)
         {
             if (!Rotatable) return;
-            _targetYaw += 45f;
+            var bearings = new List<float>();
+            var here = transform.position;
+            foreach (var h in Hoop.All)
+            {
+                if (h == null || h.DunkOnly || h.Mode == HoopMode.Counter || !CanFeed(h, here)) continue;
+                var d = h.RimCenter - here;
+                d.y = 0;
+                if (d.magnitude > 1f && d.magnitude < TargetRange) bearings.Add(Bearing(d));
+            }
+            foreach (var b in AllBoards)
+            {
+                if (b == null || b == this) continue;
+                var d = b.transform.position - here;
+                d.y = 0;
+                if (d.magnitude > 1f && d.magnitude < TargetRange) bearings.Add(Bearing(d));
+            }
+            float step = 45f;
+            if (bearings.Count > 0)
+            {
+                float cur = Mathf.Repeat(_targetYaw, 360f);
+                step = float.MaxValue;
+                foreach (float y in bearings)
+                {
+                    float delta = Mathf.Repeat(y - cur, 360f);
+                    if (delta < 3f) delta += 360f;      // already pointing at this one: go to the next
+                    step = Mathf.Min(step, delta);
+                }
+            }
+            _targetYaw += step;
             GameAudio.PlayAt("turn", transform.position, 0.9f);
             Rumble.Pulse(0f, 0.3f, 0.08f);
         }
@@ -479,7 +526,7 @@ namespace ZanderGame
             var from = FaceCenter;
             foreach (var h in Hoop.All)
             {
-                if (h == null || h.DunkOnly || h.Mode == HoopMode.Counter) continue;
+                if (h == null || h.DunkOnly || h.Mode == HoopMode.Counter || !CanFeed(h, from)) continue;
                 var d = h.RimCenter - from;
                 d.y = 0;
                 if (d.magnitude < 0.5f) continue;
@@ -526,6 +573,11 @@ namespace ZanderGame
         public void OnBallHit(Basketball ball)
         {
             if (Time.time < _cooldown || ball.IsHeld) return;
+            // only balls hitting the FRONT (the side the arrow/laser points) get fired off;
+            // anything hitting the back or sides just bounces off normally
+            var rel = ball.transform.position - FaceCenter;
+            rel.y = 0;
+            if (Vector3.Dot(rel, Facing) < -0.05f) return;
             var target = FindTarget(out var point);
             if (target == null) return; // plain physics bounce
             _cooldown = Time.time + 0.3f;
@@ -545,11 +597,18 @@ namespace ZanderGame
             _pivot.localRotation = Quaternion.RotateTowards(_pivot.localRotation, Quaternion.Euler(0, _targetYaw, 0),
                 220f * Time.deltaTime);
             var target = FindTarget(out var point);
+            bool settled = Quaternion.Angle(_pivot.localRotation, Quaternion.Euler(0, _targetYaw, 0)) < 1f;
+            if (settled && target != null && target != _lockedOn)
+            {
+                GameAudio.PlayAt("chime", transform.position, 0.6f, 1.5f);   // lock-on!
+                Effects.Burst(point, new Color(0.35f, 1f, 0.5f), 12, 2f, 0.1f, 0.5f, false);
+            }
+            if (settled) _lockedOn = target;
             _laser.SetPosition(0, FaceCenter);
             _laser.SetPosition(1, target != null ? point : FaceCenter + Facing * 6f);
             var c = target != null ? new Color(0.35f, 1f, 0.5f, 0.9f) : new Color(1f, 0.35f, 0.3f, 0.6f);
             _laserMat.color = c;
-            _laser.widthMultiplier = target != null ? 0.07f + 0.02f * Mathf.Sin(Time.time * 8) : 0.04f;
+            _laser.widthMultiplier = target != null ? 0.1f + 0.03f * Mathf.Sin(Time.time * 8) : 0.05f;
         }
     }
 
