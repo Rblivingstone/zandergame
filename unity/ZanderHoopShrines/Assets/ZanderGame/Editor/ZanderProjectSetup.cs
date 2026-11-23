@@ -35,7 +35,8 @@ namespace ZanderGame.EditorTools
         public static void OpenMain()
         {
             Setup(false);
-            EditorSceneManager.OpenScene(ScenePath);
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;   // user cancelled
+            EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
         }
 
         [MenuItem("Zander/Reimport Blender Models")]
@@ -109,13 +110,12 @@ namespace ZanderGame.EditorTools
         {
             if (!File.Exists(ScenePath))
             {
+                // Write an empty scene file straight to disk. (Creating it through the
+                // SceneManager fails while an unsaved "Untitled" scene is open.)
+                // The game builds its own camera, lights and world when you press Play.
                 Directory.CreateDirectory("Assets/Scenes");
-                var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Additive);
-                var note = new GameObject("README - just press Play (the game builds itself at runtime)");
-                note.transform.position = Vector3.zero;
-                EditorSceneManager.SaveScene(scene, ScenePath);
-                EditorSceneManager.CloseScene(scene, true);
-                AssetDatabase.Refresh();
+                File.WriteAllText(ScenePath, "%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n");
+                AssetDatabase.ImportAsset(ScenePath);
             }
             var scenes = EditorBuildSettings.scenes;
             foreach (var s in scenes)
