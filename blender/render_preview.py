@@ -40,7 +40,8 @@ pts = [o.matrix_world @ Vector(c) for o in meshes for c in o.bound_box]
 lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
 hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
 if os.environ.get("ZG_FOCUS_HEAD"):
-    lo = Vector((lo.x, lo.y, hi.z - (hi.z - lo.z) * 0.24))
+    H = hi.z - lo.z
+    lo, hi = Vector((lo.x, lo.y, hi.z - H * 0.5)), Vector((hi.x, hi.y, hi.z - H * 0.14))
 centre = (lo + hi) / 2
 size = max((hi - lo).x, (hi - lo).y, (hi - lo).z)
 if os.environ.get("ZG_FOCUS_HEAD"):

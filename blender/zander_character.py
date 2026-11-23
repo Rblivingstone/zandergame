@@ -84,9 +84,13 @@ def paint_body_3d(P, N, W):
     ax = np.abs(x)
     # 1 = arm/hand. Strict: the torso skin near the armpit is partly bound to the
     # arm bones too, and must still get the jersey.
+    # An arm surface either faces away from the body side (front/back/inner side
+    # of the arm) or sits well outside the torso; the torso wall under the
+    # armpit faces outward and is covered, so the jersey tucks under the arm.
     armw = sum(W.values()) if W else np.zeros(len(P))
-    arm = np.clip((armw - 0.78) * 6, 0, 1) * np.clip((np.abs(P[:, 0]) - 0.115) * 60, 0, 1)
-    arm = np.maximum(arm, np.clip((armw - 0.9) * 10, 0, 1) * (P[:, 2] < 0.6))
+    out_x = N[:, 0] * np.sign(P[:, 0])
+    is_arm_dir = np.maximum(np.clip((0.45 - out_x) * 4, 0, 1), np.clip((np.abs(P[:, 0]) - 0.15) * 40, 0, 1))
+    arm = np.clip((armw - 0.45) * 5, 0, 1) * is_arm_dir
     body = 1 - arm
     soft = zb.soft
     col = np.tile(hx(SKIN), (len(P), 1))
@@ -230,6 +234,14 @@ def build_body(rig):
     # ------------------------------------------------------------------ head --
     head = za.sculpt_head("head", HEAD_C, HEAD_RX, HEAD_RY, HEAD_RZ, m["face"], jaw=0.2, chin=0.06)
     za.rigid(head, "head")
+    # a small, soft chibi nose bump (plus a hint of a bridge) right under the painted nose
+    for v in head.data.vertices:
+        if v.co.y >= 0:
+            continue
+        d2 = (v.co.x / 0.016) ** 2 + ((v.co.z - 0.957) / 0.02) ** 2
+        bridge = (v.co.x / 0.012) ** 2 + ((v.co.z - 0.985) / 0.03) ** 2
+        v.co.y -= 0.016 * math.exp(-d2) + 0.005 * math.exp(-bridge)
+    head.data.update()
     za.set_uvs(head, face_uv)
     parts.append(head)
     for sx in (1, -1):
@@ -282,12 +294,20 @@ def build_hair(head, m):
         d = co - c
         return Vector((d.x / HEAD_RX, d.y / HEAD_RY, d.z / HEAD_RZ))
 
-    def hairline(d):
+    def hair_g(d):
+        """> 0 where there is hair. The sides come right down and wrap around
+        the ears (sideburns in front, hair behind), the forehead stays clear."""
         front = max(0.0, -d.y)
         back = max(0.0, d.y)
-        if abs(d.x) > 0.7 and -0.55 < d.z < 0.2 and d.y < 0.45:
-            return False   # keep the ears clear
-        return d.z > 0.02 + 0.36 * front - 0.62 * back
+        side = min(1.0, max(0.0, (abs(d.x) - 0.45) / 0.45))
+        g = d.z - (0.02 + 0.36 * front * (1 - side * 0.75) - 0.62 * back - 0.5 * side)
+        if abs(d.x) > 0.55:                      # cut-out around the ear
+            e = ((d.y - 0.06) / 0.3) ** 2 + ((d.z + 0.28) / 0.33) ** 2
+            g = min(g, (e - 1.0) * 0.25)
+        return g
+
+    def hairline(d):
+        return hair_g(d) > 0
 
     # the soft base mass
     o = head.copy()
@@ -295,12 +315,9 @@ def build_hair(head, m):
     o.name = "hair_mass"
     zg.link(o)
     o.vertex_groups.clear()
+    za.subdivide(o, 2)          # dense, so the hairline and the ear cut-out are smooth curves
     def hair_amount(d):
-        front = max(0.0, -d.y)
-        back = max(0.0, d.y)
-        g = d.z - (0.02 + 0.36 * front - 0.62 * back)
-        ear = max(abs(d.x) - 0.7, 0.0) * max(0.0, 0.2 - d.z) * max(0.0, d.z + 0.55) * (1.0 if d.y < 0.45 else 0.0)
-        t = min(1.0, max(0.0, (g + 0.04) / 0.14)) * (1.0 - min(1.0, ear * 40))
+        t = min(1.0, max(0.0, (hair_g(d) + 0.03) / 0.12))
         return t * t * (3 - 2 * t)
     for v in o.data.vertices:
         k = 0.985 + (1.1 - 0.985) * hair_amount(nd(v.co))   # smooth hairline (no steps)
@@ -350,10 +367,12 @@ def build_hair(head, m):
                 side = Vector((1, 0, 0))
             parts.append(za.hair_lock("lock", p0, p1, p2, w, w * 0.22, m["hair"], flat_axis=tuple(side.normalized()),
                                       segs=7, ring=8, tip_power=1.5))
-    # short side locks framing the face above the ears
+    # short side locks: sideburns in front of the ear, layers above and behind it
     for sx in (1, -1):
-        for a in (0.75, 0.42, 0.1, -0.22, -0.55, -0.85):
-            d = scalp(a, sx * 1.15)
+        for a, lat in ((0.75, 1.15), (0.42, 1.15), (0.1, 1.15), (-0.22, 1.15), (-0.55, 1.15), (-0.85, 1.15),
+                       (0.55, 2.0), (0.3, 2.4), (-0.35, 2.2), (-0.6, 1.9), (-0.85, 1.6), (-1.05, 1.3),
+                       (0.45, 3.2), (-0.55, 3.0), (-0.8, 2.6)):
+            d = scalp(a, sx * lat)
             base = c + Vector((d.x * HEAD_RX, d.y * HEAD_RY, d.z * HEAD_RZ)) * 1.06
             if not hairline(nd(base)):
                 continue

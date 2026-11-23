@@ -343,16 +343,21 @@ def paint_zander_clothes(skin="#FBDCC2"):
 BOSS_FACE_U_M, BOSS_FACE_V_M, BOSS_FACE_CZ = 1.2, 1.3, 2.78
 
 
-def paint_boss_face():
-    cv = Canvas(1024, BOSS_FACE_U_M, BOSS_FACE_V_M, 0.0, BOSS_FACE_CZ, "#EE7A2C")
-    c = cv.c
-    # leather pebble texture
+def _ball_leather(c, seed):
     import random
-    rnd = random.Random(4)
+    rnd = random.Random(seed)
     for _ in range(2200):
         x = rnd.uniform(-0.6, 0.6)
         z = rnd.uniform(2.12, 3.44)
         c.drawCircle(x, z, 0.004, fill(C("#D9661F", 120)))
+
+
+def paint_boss_face():
+    """2048x1024 atlas: left half = the front of the ball-head (face), right half
+    = the back of the ball (seams only). See boss_character.boss_face_uv()."""
+    cv = Canvas(1024, BOSS_FACE_U_M, BOSS_FACE_V_M, 0.0, BOSS_FACE_CZ, "#EE7A2C")
+    c = cv.c
+    _ball_leather(c, 4)
     # front seams (the side curves of a basketball)
     for s in (1, -1):
         c.drawPath(smooth(ellipse_pts(s * 0.62, 2.78, 0.3, 0.62, math.radians(90), math.radians(270), 20) if s > 0 else
@@ -384,7 +389,23 @@ def paint_boss_face():
     c.drawRect(skia.Rect.MakeLTRB(-0.3, 2.44, 0.3, 2.5), fill(C("#FFFFFF")))
     c.restore()
     c.drawPath(grin, stroke(C("#1A0C04"), 0.012))
-    return cv.save("kingswat_face.png")
+    # back of the ball
+    bk = Canvas(1024, BOSS_FACE_U_M, BOSS_FACE_V_M, 0.0, BOSS_FACE_CZ, "#EE7A2C")
+    _ball_leather(bk.c, 9)
+    for s_ in (1, -1):
+        pts = (ellipse_pts(s_ * 0.62, 2.78, 0.3, 0.62, math.radians(90), math.radians(270), 20) if s_ > 0 else
+               ellipse_pts(s_ * 0.62, 2.78, 0.3, 0.62, math.radians(-90), math.radians(90), 20))
+        bk.c.drawPath(smooth(pts), stroke(C("#2A1A12"), 0.018))
+    bk.c.drawLine(0.0, 3.45, 0.0, 2.1, stroke(C("#2A1A12"), 0.018))
+    atlas = skia.Surface(2048, 1024)
+    a = atlas.getCanvas()
+    a.drawImage(cv.surface.makeImageSnapshot(), 0, 0)
+    a.drawImage(bk.surface.makeImageSnapshot(), 1024, 0)
+    os.makedirs(TEX_DIR, exist_ok=True)
+    path = os.path.join(TEX_DIR, "kingswat_face.png")
+    atlas.makeImageSnapshot().save(path, skia.kPNG)
+    print("[ZG] painted", path)
+    return path
 
 
 def paint_boss_clothes():
@@ -423,15 +444,16 @@ if __name__ == "__main__":
 DECAL_X0, DECAL_X1, DECAL_Z0, DECAL_Z1 = -0.25, 0.25, 0.24, 0.8
 
 
-def _decal_canvas(px=1024):
+def _decal_canvas(px=1024, bounds=None):
+    x0, x1, z0, z1 = bounds or (DECAL_X0, DECAL_X1, DECAL_Z0, DECAL_Z1)
     w = px
-    h = int(px * (DECAL_Z1 - DECAL_Z0) / (DECAL_X1 - DECAL_X0))
+    h = int(px * (z1 - z0) / (x1 - x0))
     surf = skia.Surface(w, h)
     c = surf.getCanvas()
     c.clear(skia.ColorTRANSPARENT)
-    sx = w / (DECAL_X1 - DECAL_X0)
-    sz = h / (DECAL_Z1 - DECAL_Z0)
-    c.translate(-DECAL_X0 * sx, DECAL_Z1 * sz)
+    sx = w / (x1 - x0)
+    sz = h / (z1 - z0)
+    c.translate(-x0 * sx, z1 * sz)
     c.scale(sx, -sz)
     return surf, c
 
@@ -459,4 +481,20 @@ def zander_decals():
     for sx in (1, -1):
         b.drawPath(smooth([(sx * 0.085, 0.51), (sx * 0.092, 0.54), (sx * 0.087, 0.57)]), stroke(C("#C9D3E6", 230), 0.005))
         b.drawPath(smooth([(sx * 0.07, 0.29), (sx * 0.075, 0.33), (sx * 0.068, 0.37)]), stroke(C("#13234A", 170), 0.004))
+    return _to_float(front), _to_float(back)
+
+
+BOSS_DECAL_BOUNDS = (-0.9, 0.9, 0.6, 2.4)
+
+
+def boss_decals():
+    """King Swat: gold 99 on the front; KING + 99 on the back; jersey folds."""
+    front, c = _decal_canvas(1024, BOSS_DECAL_BOUNDS)
+    _number(c, "99", 0.0, 1.7, 0.34, "#FFC21A", "#3E1478", 0.05, 0.08)
+    back, b = _decal_canvas(1024, BOSS_DECAL_BOUNDS)
+    _number(b, "99", 0.0, 1.66, 0.38, "#FFC21A", "#3E1478", 0.05, 0.08)
+    _stroke_letters(b, "KING", 0.0, 1.93, 0.09, C("#FFC21A"), 0.018)
+    for cv in (c, b):
+        for sx in (1, -1):
+            cv.drawPath(smooth([(sx * 0.42, 1.42), (sx * 0.44, 1.52), (sx * 0.42, 1.62)]), stroke(C("#3E1478", 200), 0.014))
     return _to_float(front), _to_float(back)

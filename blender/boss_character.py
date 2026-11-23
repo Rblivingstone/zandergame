@@ -23,6 +23,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import zg_common as zg  # noqa: E402
 import zg_anime as za  # noqa: E402
+import zg_bake as zb  # noqa: E402
+import zg_paint as zp  # noqa: E402
+import numpy as np  # noqa: E402
 import bmesh  # noqa: E402
 from mathutils import Vector  # noqa: E402
 
@@ -47,6 +50,64 @@ MOUTH = "#2A0A0A"
 
 HEAD_C = Vector((0, 0, 2.78))
 HEAD_RX, HEAD_RY, HEAD_RZ = 0.56, 0.53, 0.55
+
+
+def _ss(e0, e1, x):
+    t = min(1.0, max(0.0, (x - e0) / (e1 - e0)))
+    return t * t * (3 - 2 * t)
+
+
+def boss_face_uv(co):
+    """Front half of the atlas for the face side, back half (mirrored so it reads
+    from behind) for the back of the ball."""
+    k = co.x / zp.BOSS_FACE_U_M * 0.5
+    u = 0.25 + k if co.y <= 0 else 0.75 - k
+    v = 0.5 + (co.z - zp.BOSS_FACE_CZ) / zp.BOSS_FACE_V_M
+    return (u % 1.0, min(max(v, 0.005), 0.995))
+
+
+_DECALS = None
+
+
+def paint_boss_body_3d(P, N, W):
+    """Gunmetal robot frame with a purple #99 jersey (gold trim) and white shorts."""
+    global _DECALS
+    if _DECALS is None:
+        _DECALS = zp.boss_decals()
+    hx, soft = zb.hexrgb, zb.soft
+    x, y, z = P[:, 0], P[:, 1], P[:, 2]
+    ax = np.abs(x)
+    armw = sum(W.values()) if W else np.zeros(len(P))
+    arm = np.clip((armw - 0.78) * 6, 0, 1) * np.clip((ax - 0.5) * 20, 0, 1)
+    arm = np.maximum(arm, np.clip((armw - 0.9) * 10, 0, 1) * (z < 1.6))
+    body = 1 - arm
+    col = np.tile(hx("#5E6A80"), (len(P), 1))
+    # robot panel lines on the metal
+    col = zb.lay(col, soft(0.006 - np.abs(((z * 6) % 1.0) - 0.5) * 0.17, 0.003) * 0.6, hx("#3C4456"))
+    # shorts
+    shorts = soft(z - 0.72, 0.01) * soft(1.33 - z, 0.01) * body
+    col = zb.lay(col, shorts, hx("#F4F4F4"))
+    outward = N[:, 0] * np.sign(x)
+    col = zb.lay(col, shorts * soft(outward - 0.85, 0.03), hx("#6A2DB8"))
+    col = zb.lay(col, shorts * soft(outward - 0.94, 0.02), hx("#FFC21A"))
+    col = zb.lay(col, soft(z - 0.72, 0.01) * soft(0.77 - z, 0.01) * body, hx("#6A2DB8"))
+    # jersey
+    x_arm = np.interp(z, [1.72, 1.78, 1.9, 2.05, 2.2, 2.4], [1.5, 0.62, 0.5, 0.42, 0.37, 0.37])
+    v_edge = 0.17 * np.clip((z - 1.95) / 0.25, 0, 2)
+    d_arm = x_arm - ax
+    d_neck = np.where(y < 0, np.where(z < 1.95, 1.0, ax - v_edge), np.sqrt((x / 0.17) ** 2 + ((z - 2.2) / 0.18) ** 2) - 1)
+    d_neck = np.minimum(d_neck, np.where(z > 2.18, ax - 0.17, 1.0))
+    jersey = soft(z - 1.33, 0.01) * soft(2.26 - z, 0.01) * soft(d_arm, 0.01) * soft(d_neck, 0.01) * body
+    col = zb.lay(col, jersey, hx("#6A2DB8"))
+    trim = jersey * np.maximum(soft(0.05 - d_arm, 0.01) * soft(z - 1.76, 0.01), soft(0.05 - d_neck, 0.01))
+    col = zb.lay(col, trim, hx("#FFC21A"))
+    col = zb.lay(col, jersey * soft(1.4 - z, 0.01), hx("#FFC21A"))
+    front_d, back_d = _DECALS
+    for dec, face, mirror in ((front_d, soft(-N[:, 1] - 0.3, 0.1), False), (back_d, soft(N[:, 1] - 0.3, 0.1), True)):
+        smp = zb.sample_decal(dec, -x if mirror else x, z, *zp.BOSS_DECAL_BOUNDS)
+        a = smp[:, 3] * face * (jersey + shorts).clip(0, 1)
+        col = col * (1 - a[:, None]) + smp[:, :3] * a[:, None]
+    return col
 
 
 def build_body(rig):
@@ -86,47 +147,23 @@ def build_body(rig):
         kn = j((sx * 0.3, 0, 0.56), (0.17, 0.17))
         an = j((sx * 0.32, 0, 0.22), (0.15, 0.15))
         E += [(pelvis, hip), (hip, kn), (kn, an)]
-    body = za.skin_body("KingSwat_Frame", J, E, m["metal"], root=pelvis)
-    body.data.materials.append(m["jersey"])
-    body.data.materials.append(m["shorts"])
-
-    def region(c):
-        ax = abs(c.x)
-        if 1.3 <= c.z < 2.2 and ax < (0.58 if c.z < 1.6 else 0.42):
-            return 1
-        if 0.72 <= c.z < 1.3 and ax < 0.62:
-            return 2
-        return 0
-    puff = {1: 0.02, 2: 0.035}
-    moved = {}
-    for poly in body.data.polygons:
-        r = region(poly.center)
-        poly.material_index = r
-        if r:
-            for vi in poly.vertices:
-                moved[vi] = max(moved.get(vi, 0.0), puff[r])
-    for vi, d in moved.items():
-        v = body.data.vertices[vi]
-        v.co += v.normal * (d + (0.03 if 0.72 <= v.co.z < 0.82 else 0.0))
-    body.data.update()
+    body = za.skin_body("KingSwat_Frame", J, E, m["metal"], root=pelvis, subdiv=3)
     za.auto_weights(body, rig)
+    zb.unwrap(body)
+    arm_groups = [g.name for g in body.vertex_groups if "arm" in g.name or "hand" in g.name]
+    tex = zb.bake(body, 2048, paint_boss_body_3d, "kingswat_body.png", groups=arm_groups)
+    body.data.materials.clear()
+    body.data.materials.append(za.tex_material("BossBody", tex, 0.45))
+    gidx = {g.index: g.name for g in body.vertex_groups}
+    for v in body.data.vertices:
+        armw = sum(g.weight for g in v.groups if gidx[g.group] in arm_groups)
+        if armw > 0.7 and abs(v.co.x) > 0.5:
+            continue
+        z = v.co.z
+        d = 0.035 * _ss(0.7, 0.8, z) * (1 - _ss(1.28, 1.36, z)) + 0.02 * _ss(1.3, 1.38, z) * (1 - _ss(2.0, 2.15, z))
+        v.co += v.normal * d
+    body.data.update()
     parts.append(body)
-
-    pf = za.Projector(body)
-    pb = za.Projector(body, from_back=True)
-    vneck = [(-0.22, 2.17), (-0.1, 2.02), (0.0, 1.97), (0.1, 2.02), (0.22, 2.17)]
-    parts.append(za.fix_normals(pf.strip("vneck", vneck, 0.06, m["trim"], 0.025, "chest"), pf))
-    hem = [(x / 20.0 * 1.2 - 0.6, 1.33) for x in range(21)]
-    parts.append(za.fix_normals(pf.strip("hem", hem, 0.06, m["trim"], 0.03, "spine"), pf))
-    parts.append(za.fix_normals(pb.strip("hem_b", hem, 0.06, m["trim"], 0.03, "spine"), pb))
-    # "99"
-    for proj in (pf, pb):
-        for sx in (1, -1):
-            cx = sx * 0.15
-            ring = za.ellipse(cx, 1.8, 0.075, 0.07, 20)
-            parts.append(za.fix_normals(proj.strip("nine_ring", ring + [ring[0]], 0.04, m["trim"], 0.03, "chest"), proj))
-            parts.append(za.fix_normals(proj.strip("nine_tail", [(cx + 0.072, 1.8), (cx + 0.06, 1.62), (cx - 0.02, 1.56)],
-                                                   0.04, m["trim"], 0.03, "chest"), proj))
 
     # royal shoulder pads
     for sx, side in ((1, "L"), (-1, "R")):
@@ -159,20 +196,19 @@ def build_body(rig):
     parts.append(build_cape(m))
 
     # ------------------------------------------------------- basketball head --
-    head = za.sculpt_head("head", HEAD_C, HEAD_RX, HEAD_RY, HEAD_RZ, m["ball"], jaw=0.12, chin=0.04)
+    face_mat = za.tex_material("BossFace", zp.paint_boss_face(), 0.45)
+    head = za.sculpt_head("head", HEAD_C, HEAD_RX, HEAD_RY, HEAD_RZ, face_mat, jaw=0.12, chin=0.04)
     za.rigid(head, "head")
+    za.set_uvs(head, boss_face_uv, wrap_u=True)
     parts.append(head)
     # seams that avoid the face: the side-to-side ring plus two curved side seams
     parts.append(zg.torus("seam_mid", HEAD_C, 0.548, 0.013, rot=(90, 0, 0), mat=m["seam"], bone="head", major_seg=64))
     for sx in (1, -1):
-        parts.append(zg.torus("seam_side", HEAD_C + Vector((sx * 0.42, 0.0, 0)), 0.36, 0.013, rot=(0, 90, 0),
-                              mat=m["seam"], bone="head", major_seg=64))
         # robot ear discs
         parts.append(zg.cylinder("ear_disc", (sx * 0.56, 0.02, 2.74), 0.14, 0.08, rot=(0, 90, 0), mat=m["metal_light"],
                                  bone="head", verts=32))
         parts.append(zg.cylinder("ear_glow", (sx * 0.6, 0.02, 2.74), 0.07, 0.02, rot=(0, 90, 0), mat=m["eye"],
                                  bone="head", verts=24))
-    parts += build_face(head, m)
     parts += build_crown(m)
 
     for p in parts:
