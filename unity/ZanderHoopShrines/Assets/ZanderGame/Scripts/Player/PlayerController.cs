@@ -198,10 +198,12 @@ namespace ZanderGame
                 }
             }
             if (_nearInteract != null) InteractPrompt = _nearInteract.Prompt;
+            else if (Balls != null && Balls.CanStealFromBoss) InteractPrompt = "Press {USE} to STEAL the ball!";
             else if (Balls != null && Balls.PlateBallNearby != null) InteractPrompt = "Press {USE} to pick up the ball";
 
             if (frozen || !Controls.InteractDown) return;
             if (_nearInteract != null) _nearInteract.Interact(this);
+            else if (Balls != null && Balls.TrySteal()) { }
             else Balls?.GrabPlateBall();
         }
 

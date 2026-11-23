@@ -170,6 +170,44 @@ namespace ZanderGame
             }
         }
 
+        // ------------------------------------------------------------ stealing --
+        float _stealCooldown;
+
+        /// <summary>King Swat is dribbling right next to Zander and Zander has no ball.</summary>
+        public bool CanStealFromBoss
+        {
+            get
+            {
+                var boss = BossController.Instance;
+                return Ball == null && !Dunking && boss != null && boss.HeldBall != null && Time.time > _stealCooldown &&
+                       Flat(boss.transform.position - transform.position) < 2.6f;
+            }
+        }
+
+        public bool TrySteal()
+        {
+            if (!CanStealFromBoss) return false;
+            _stealCooldown = Time.time + 1.2f;
+            float chance = SuperShots ? 0.75f : 0.55f;
+            if (UnityEngine.Random.value < chance)
+            {
+                var b = BossController.Instance.LoseBall();
+                if (b != null)
+                {
+                    Grab(b);
+                    GameAudio.Play("chime", 0.7f, 1.3f);
+                    Rumble.Pulse(0.3f, 0.6f, 0.2f);
+                    Hud.Toast("STOLEN! Go, go, go!", new Color(0.5f, 1f, 0.6f), 1.2f);
+                }
+            }
+            else
+            {
+                GameAudio.Play("buzz", 0.4f, 1.4f);
+                Hud.Toast("Missed the steal - try again!", Color.white, 1.0f);
+            }
+            return true;
+        }
+
         public void GrabPlateBall()
         {
             if (Ball == null && PlateBallNearby != null) Grab(PlateBallNearby);

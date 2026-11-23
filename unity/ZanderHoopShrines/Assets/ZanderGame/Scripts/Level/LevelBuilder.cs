@@ -630,6 +630,8 @@ namespace ZanderGame
             room.Hints = new[]
             {
                 "Shoot at YOUR hoop (the north end). Shots from outside the big arc are worth 3 points!",
+                "King Swat grabs balls too and tries to STEAL yours - sprint away when he winds up!",
+                "When King Swat is dribbling, get close and press {USE} to steal it back!",
                 "When King Swat STOMPS, jump over the shockwave ring!",
                 "When he puts his arms up he will SWAT your shot - wait until he stops blocking.",
                 "Later the hoop starts moving - aim assist will lead it for you. Time your release!",

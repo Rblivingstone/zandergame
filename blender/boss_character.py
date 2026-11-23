@@ -8,7 +8,7 @@ with a ruby, gold royal shoulder pads, a flowing red royal cape, a purple #99
 jersey over a smooth gunmetal robot body, white shorts, and enormous red
 swatting gauntlets. About 3.4 m tall.
 
-Animations: Idle, Walk, Shoot, Stomp, Block, Hit, Taunt, Defeat
+Animations: Idle, Walk, Shoot, Stomp, Block, Hit, Taunt, Defeat, Steal
 
 Usage:
     blender -b -P blender/boss_character.py -- --out <dir>
@@ -393,6 +393,22 @@ def anim_block(rig):
     return a.finish()
 
 
+def anim_steal(rig):
+    """A big lunging swipe with the right glove, low and forward."""
+    a = zg.ActionBuilder(rig, "Steal", 26, loop=False)
+    a.pose(1, rot={})
+    wind = {"spine": (-8, 0, 15), "head": (-5, 0, 10), "upper_arm.R": (-40, 0, 70), "forearm.R": (-40, 0, 0),
+            "upper_arm.L": (-20, 0, -30), "thigh.L": (-20, 0, 0), "shin.L": (30, 0, 0)}
+    a.pose(8, rot=wind, loc={"hips": (0, 0.05, -0.08)})
+    lunge = {"spine": (35, 0, -20), "head": (-25, 0, -10), "upper_arm.R": (-75, 0, -10), "forearm.R": (-5, 0, 0),
+             "hand.R": (-20, 0, 0), "upper_arm.L": (10, 0, -40),
+             "thigh.R": (-55, 0, 0), "shin.R": (60, 0, 0), "thigh.L": (20, 0, 0), "shin.L": (20, 0, 0)}
+    a.pose(13, rot=lunge, loc={"hips": (0, -0.25, -0.25)})
+    a.pose(18, rot=lunge, loc={"hips": (0, -0.25, -0.25)})
+    a.pose(26, rot={}, loc={"hips": (0, 0, 0)})
+    return a.finish()
+
+
 def anim_hit(rig):
     a = zg.ActionBuilder(rig, "Hit", 24, loop=False)
     a.pose(1, rot={})
@@ -434,7 +450,7 @@ def main():
     body = build_body(rig)
     zg.skin_to(body, rig)
     actions = [anim_idle(rig), anim_walk(rig), anim_shoot(rig), anim_stomp(rig), anim_block(rig),
-               anim_hit(rig), anim_taunt(rig), anim_defeat(rig)]
+               anim_hit(rig), anim_taunt(rig), anim_defeat(rig), anim_steal(rig)]
     zg.push_actions_to_nla(rig, actions)
     rig.animation_data.action = actions[0]
     zg.export_fbx(os.path.join(out, "KingSwat.fbx"), [rig, body], animated=True)
