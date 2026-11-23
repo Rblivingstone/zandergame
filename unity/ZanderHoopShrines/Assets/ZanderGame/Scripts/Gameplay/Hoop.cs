@@ -73,6 +73,8 @@ namespace ZanderGame
             var model = ModelLibrary.Spawn("Hoop", t, Vector3.zero);
             if (model != null)
             {
+                // pole + base sit BEHIND the rim (local -Z); the rim faces local +Z
+                ModelLibrary.FaceByBounds(model, -1f);
                 ModelLibrary.Tint(model, "HoopPad", HoopColor * 0.85f);
                 _rimMats = ModelLibrary.Materials(model, "Rim");
             }

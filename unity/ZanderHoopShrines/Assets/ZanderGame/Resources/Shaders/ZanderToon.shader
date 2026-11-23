@@ -19,6 +19,7 @@ Shader "ZanderGame/Toon"
         _RimStrength ("Rim Strength", Range(0,1)) = 0.22
         _OutlineColor ("Outline Color", Color) = (0.14,0.09,0.1,1)
         _OutlineWidth ("Outline Width", Range(0,0.02)) = 0.0035
+        _Cutoff ("Alpha Cutoff (banners)", Range(0,1)) = 0
     }
     SubShader
     {
@@ -66,7 +67,7 @@ Shader "ZanderGame/Toon"
         }
 
         CGPROGRAM
-        #pragma surface surf Toon fullforwardshadows
+        #pragma surface surf Toon fullforwardshadows alphatest:_Cutoff addshadow
         #pragma target 3.0
         sampler2D _MainTex;
         fixed4 _Color;

@@ -421,6 +421,7 @@ namespace ZanderGame
         {
             var t = transform;
             var model = ModelLibrary.Spawn("ReboundBoard", t, Vector3.zero);
+            ModelLibrary.FaceByBounds(model, 1f);   // the arrow on top points the way the board fires (+Z)
             Transform pivotVis = model != null ? ModelLibrary.FindDeep(model.transform, "BoardPivot") : null;
 
             var pivot = new GameObject("Pivot");

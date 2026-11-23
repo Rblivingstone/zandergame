@@ -144,12 +144,119 @@ namespace ZanderGame
                 Build.StoneBox("Wall" + tag + "Bottom", parent, new Vector3(0, (yBottom + gy0) / 2, zc), new Vector3(gap, gy0 - yBottom, t));
         }
 
+        // ------------------------------------------------------------ roofs --
+        static void NoShadows(GameObject go)
+        {
+            foreach (var r in go.GetComponentsInChildren<Renderer>())
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
+        /// <summary>
+        /// A painted coffered ceiling over [x0,x1]x[z0,z1] at height yTop, with wooden beams,
+        /// glowing skylight panels and hanging lanterns (the room's real light sources).
+        /// The roof casts no shadows so the sun still fills the room softly.
+        /// </summary>
+        void Roof(Transform parent, float x0, float x1, float z0, float z1, float yTop, bool lanterns = true,
+            string lanternHex = "#FFB347", float lanternSpacing = 7.5f)
+        {
+            var roof = Build.Group("Roof", parent).transform;
+            float w = x1 - x0 + 2f, l = z1 - z0 + 2f;
+            float cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+            var tex = Resources.Load<Texture2D>("Textures/Ceiling");
+            Material m;
+            if (tex != null)
+            {
+                tex.wrapMode = TextureWrapMode.Repeat;
+                m = Mat.Textured(tex, new Vector2(w / 4f, l / 4f), 0.2f);
+            }
+            else m = Mat.Color("#2A2F3E", 0.1f);
+            var ceil = Build.Floor("Ceiling", roof, new Vector3(cx, yTop, cz), w, l, m, 0.6f);
+            ceil.transform.localRotation = Quaternion.Euler(180, 0, 0);   // face down into the room
+            // beams across the room every 4 m
+            var wood = Mat.Color("#5B3A22", 0.2f);
+            for (float z = z0 + 2f; z < z1 - 1f; z += 4f)
+                Build.Box("Beam", roof, new Vector3(cx, yTop - 0.2f, z), new Vector3(w, 0.4f, 0.45f), wood, false);
+            Build.Box("BeamLong", roof, new Vector3(cx, yTop - 0.25f, cz), new Vector3(0.5f, 0.5f, l), wood, false);
+            // skylights: glowing panels along the middle (visual source of the daylight)
+            var sky = Mat.Glow(Mat.Hex("#FFF4D6"), Mat.Hex("#FFE8B0"), 1.4f);
+            for (float z = z0 + 4f; z < z1 - 2f; z += 8f)
+                foreach (float x in new[] { cx - w / 4, cx + w / 4 })
+                    Build.Box("Skylight", roof, new Vector3(x, yTop - 0.02f, z), new Vector3(2.2f, 0.05f, 2.2f), sky, false);
+            if (lanterns)
+            {
+                int nx = Mathf.Max(1, Mathf.RoundToInt((x1 - x0) / lanternSpacing));
+                int nz = Mathf.Max(1, Mathf.RoundToInt((z1 - z0) / lanternSpacing));
+                for (int i = 0; i < nx; i++)
+                    for (int k = 0; k < nz; k++)
+                    {
+                        float x = x0 + (i + 0.5f) * (x1 - x0) / nx;
+                        float z = z0 + (k + 0.5f) * (z1 - z0) / nz;
+                        Lantern(roof, new Vector3(x, yTop, z), Mathf.Min(2.4f, (yTop - 6.2f)), lanternHex);
+                    }
+            }
+            NoShadows(roof.gameObject);
+        }
+
+        void Lantern(Transform parent, Vector3 ceilingPoint, float drop, string hex)
+        {
+            drop = Mathf.Max(0.6f, drop);
+            var g = Build.Group("Lantern", parent, ceilingPoint).transform;
+            var dark = Mat.Color("#2C2420", 0.2f);
+            var glow = Mat.Glow(Mat.Hex(hex), Mat.Hex(hex), 2.2f);
+            Build.Box("Chain", g, new Vector3(0, -drop / 2, 0), new Vector3(0.05f, drop, 0.05f), dark, false);
+            Build.Prim(PrimitiveType.Cylinder, "CapTop", g, new Vector3(0, -drop - 0.05f, 0), new Vector3(0.5f, 0.06f, 0.5f), dark, false);
+            Build.Prim(PrimitiveType.Sphere, "Glow", g, new Vector3(0, -drop - 0.4f, 0), new Vector3(0.55f, 0.65f, 0.55f), glow, false);
+            Build.Prim(PrimitiveType.Cylinder, "CapBottom", g, new Vector3(0, -drop - 0.75f, 0), new Vector3(0.36f, 0.05f, 0.36f), dark, false);
+            var l = Build.PointLight(g, new Vector3(0, -drop - 0.6f, 0), Mat.Hex(hex), 14f, 1.25f);
+            l.renderMode = LightRenderMode.ForcePixel;
+        }
+
+        /// <summary>A hanging cloth banner (alpha-cut painted texture) on a wall. yaw: direction the banner faces.</summary>
+        static void Banner(Transform parent, string texName, Vector3 center, float w, float h, float yaw)
+        {
+            var tex = Resources.Load<Texture2D>("Textures/" + texName);
+            if (tex == null) return;
+            var go = new GameObject("Banner_" + texName);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = center;
+            go.transform.localRotation = Quaternion.Euler(0, yaw + 180f, 0);
+            var mesh = new Mesh { name = "BannerQuad" };
+            mesh.vertices = new[]
+            {
+                new Vector3(-w / 2, -h / 2, 0), new Vector3(w / 2, -h / 2, 0), new Vector3(w / 2, h / 2, 0), new Vector3(-w / 2, h / 2, 0)
+            };
+            // viewed from local -Z, +X is on the viewer's right, so u runs with x
+            mesh.uv = new[] { new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1) };
+            mesh.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var m = Mat.Textured(tex, Vector2.one, 0.1f);
+            if (m.HasProperty("_Cutoff")) m.SetFloat("_Cutoff", 0.5f);
+            go.AddComponent<MeshRenderer>().sharedMaterial = m;
+            // a little gold rod on top
+            Build.Box("Rod", go.transform, new Vector3(0, h / 2 + 0.04f, -0.04f), new Vector3(w + 0.3f, 0.08f, 0.08f),
+                Mat.Color("#FFC21A", 0.6f, 0.6f), false);
+        }
+
+        /// <summary>Banners on the side walls of a room (inner faces at x0 / x1).</summary>
+        void SideBanners(Transform parent, float x0, float x1, float y, float[] zs, string west, string east,
+            float w = 1.6f, float h = 3.2f)
+        {
+            foreach (float z in zs)
+            {
+                Banner(parent, west, new Vector3(x0 + 0.06f, y, z), w, h, 90f);
+                Banner(parent, east, new Vector3(x1 - 0.06f, y, z), w, h, -90f);
+            }
+        }
+
         void Corridor(Transform parent, float z0, float z1, float y, float width = 4.4f)
         {
             PlainFloor(parent, -width / 2, width / 2, z0, z1, y, "#4E5668");
             StoneWall("CorW", parent, new Vector3(-width / 2 - 0.5f, y + 3f, (z0 + z1) / 2), new Vector3(1, 6, z1 - z0));
             StoneWall("CorE", parent, new Vector3(width / 2 + 0.5f, y + 3f, (z0 + z1) / 2), new Vector3(1, 6, z1 - z0));
-            Build.PointLight(parent, new Vector3(0, y + 3.5f, (z0 + z1) / 2), Mat.Hex("#FFB347"), 8f, 1.2f);
+            Roof(parent, -width / 2 - 1f, width / 2 + 1f, z0, z1, y + 6f, false);
+            Lantern(parent, new Vector3(0, y + 6f, (z0 + z1) / 2), 1.2f, "#FFB347");
         }
 
         void Pillars(Transform parent, float x0, float x1, float z0, float z1, float y)
@@ -202,7 +309,9 @@ namespace ZanderGame
             var a = Area("Lobby").transform;
             const float x0 = -8, x1 = 8, z0 = 0, z1 = 14;
             CourtFloor("Lobby", a, x0, x1, z0, z1, 0, Mat.Hex("#1F5FD6"), false);
-            Walls(a, x0, x1, z0, z1, 0, 7, 0, 3.6f);
+            Walls(a, x0, x1, z0, z1, 0, 9, 0, 3.6f);
+            Roof(a, x0, x1, z0, z1, 9f);
+            SideBanners(a, x0, x1, 5.6f, new[] { 10.5f }, "Banner_Zander", "Banner_Zander");
             Pillars(a, x0, x1, z0, z1, 0);
             var room = NewRoom("Lobby", "Warm up those shooting hands!", -10, 16, new Vector3(0, 0.05f, 3), 0);
             room.IsLobby = true;
@@ -235,7 +344,9 @@ namespace ZanderGame
             var a = Area("Shrine1").transform;
             const float x0 = -9, x1 = 9, z0 = 18, z1 = 42;
             CourtFloor("Shrine1", a, x0, x1, z0, z1, 0, Mat.Hex("#E8772E"), true);
-            Walls(a, x0, x1, z0, z1, 0, 8, 3.6f, 3.0f);
+            Walls(a, x0, x1, z0, z1, 0, 11, 3.6f, 3.0f);
+            Roof(a, x0, x1, z0, z1, 11f);
+            SideBanners(a, x0, x1, 6.5f, new[] { 22f, 36f }, "Banner_Shrine", "Banner_Shrine");
             Pillars(a, x0, x1, z0, z1, 0);
             var room = NewRoom("Shrine 1: Warm-Up", "Plates and Hoops", 16, 44, new Vector3(0, 0.05f, 20), 1);
             room.Objective = "Light the hoop AND put a ball on the orange BALL plate to open the gate.";
@@ -301,7 +412,9 @@ namespace ZanderGame
             const float x0 = -11, x1 = 11, z0 = 46, z1 = 78;
             const float ledgeZ = 66, ledgeY = 4;
             CourtFloor("Shrine2", a, x0, x1, z0, z1, 0, Mat.Hex("#3CE07A"), false, true);
-            Walls(a, x0, x1, z0, z1, 0, 10, 3.6f, 3.0f, 0, 4.3f, ledgeY, ledgeY + 4.3f);
+            Walls(a, x0, x1, z0, z1, 0, 13, 3.6f, 3.0f, 0, 4.3f, ledgeY, ledgeY + 4.3f);
+            Roof(a, x0, x1, z0, z1, 13f);
+            SideBanners(a, x0, x1, 8.5f, new[] { 50f, 60f }, "Banner_Shrine", "Banner_Shrine");
             Pillars(a, x0, x1, z0, ledgeZ, 0);
             var room = NewRoom("Shrine 2: Bounce & Dunk", "Fly high!", 44, 80, new Vector3(0, 0.05f, 48), 2);
             room.Objective = "Dunk the high hoop to power the lift, then light BOTH timed hoops at the same time.";
@@ -384,7 +497,8 @@ namespace ZanderGame
                 Quaternion.LookRotation(d, n));
             StoneWall("RampW", c, new Vector3(-2.7f, 3.5f, (rz0 + rz1) / 2), new Vector3(1, 9, rz1 - rz0));
             StoneWall("RampE", c, new Vector3(2.7f, 3.5f, (rz0 + rz1) / 2), new Vector3(1, 9, rz1 - rz0));
-            Build.PointLight(c, new Vector3(0, 5, 82), Mat.Hex("#FFB347"), 9f, 1.2f);
+            Roof(c, -3.2f, 3.2f, rz0, rz1, 8f, false);
+            Lantern(c, new Vector3(0, 8f, 82), 1.2f, "#FFB347");
         }
 
         // =====================================================================
@@ -410,7 +524,9 @@ namespace ZanderGame
             Build.StoneBox("PitWallS", a, new Vector3(0, pitY / 2 - 0.5f, pit0 + 0.01f), new Vector3(x1 - x0, -pitY - 1f, 0.02f));
             Build.StoneBox("PitWallN", a, new Vector3(0, pitY / 2 - 0.5f, pit1 - 0.01f), new Vector3(x1 - x0, -pitY - 1f, 0.02f));
             Build.PointLight(a, new Vector3(0, -3, 102), Mat.Hex("#1E4BFF"), 14f, 2f);
-            Walls(a, x0, x1, z0, z1, pitY, 10 - pitY, 3.6f, 3.0f, 0, 4.3f, 0, 4.3f);
+            Walls(a, x0, x1, z0, z1, pitY, 13 - pitY, 3.6f, 3.0f, 0, 4.3f, 0, 4.3f);
+            Roof(a, x0, x1, z0, z1, 13f);
+            SideBanners(a, x0, x1, 8.5f, new[] { 92f, 114f }, "Banner_Shrine", "Banner_Shrine");
             Pillars(a, x0, x1, z0, pit0, 0);
             var room = NewRoom("Shrine 3: Chain Reaction", "Think before you shoot!", 80, 124, new Vector3(0, 0.05f, 88), 3);
             room.Objective = "Raise the bridge, then score GREEN, RED, BLUE in order. Use the Rebound Boards!";
@@ -484,7 +600,30 @@ namespace ZanderGame
             var a = Area("Arena").transform;
             const float x0 = -15, x1 = 15, z0 = 130, z1 = 170;
             CourtFloor("Arena", a, x0, x1, z0, z1, 0, Mat.Hex("#6A2DB8"), true, true, true, 6.5f);
-            Walls(a, x0, x1, z0, z1, 0, 12, 3.6f, 0);
+            Walls(a, x0, x1, z0, z1, 0, 14, 3.6f, 0);
+            Roof(a, x0, x1, z0, z1, 14f, true, "#FFE6B0", 9f);
+            // royal banners: King Swat purple on his (south) half, Zander blue on the north half
+            SideBanners(a, x0, x1, 9.5f, new[] { 136f, 143f }, "Banner_King", "Banner_King", 2.2f, 4.4f);
+            SideBanners(a, x0, x1, 9.5f, new[] { 157f, 164f }, "Banner_Zander", "Banner_Zander", 2.2f, 4.4f);
+            foreach (float x in new[] { -7f, 7f })
+            {
+                Banner(a, "Banner_Zander", new Vector3(x, 9.5f, z1 - 0.06f), 2.4f, 4.8f, 180f);
+                Banner(a, "Banner_King", new Vector3(x, 9.5f, z0 + 0.06f), 2.4f, 4.8f, 0f);
+            }
+            // gold royal trim bands and stadium light rigs
+            var gold = Mat.Glow(Mat.Hex("#FFC21A"), Mat.Hex("#FFB000"), 0.8f);
+            foreach (float x in new[] { x0 + 0.03f, x1 - 0.03f })
+                Build.Box("RoyalBand", a, new Vector3(x, 6.6f, (z0 + z1) / 2), new Vector3(0.07f, 0.18f, z1 - z0), gold, false);
+            var rigMat = Mat.Color("#1E1E24", 0.3f);
+            var lamp = Mat.Glow(Mat.Hex("#FFFFFF"), Mat.Hex("#FFF6DD"), 2.5f);
+            foreach (float z in new[] { 140f, 160f })
+                foreach (float x in new[] { -9f, 9f })
+                {
+                    Build.Box("LightRig", a, new Vector3(x, 13.2f, z), new Vector3(3.2f, 0.35f, 1.0f), rigMat, false);
+                    for (int k = -1; k <= 1; k++)
+                        Build.Prim(PrimitiveType.Cylinder, "Lamp", a, new Vector3(x + k * 1.0f, 13.0f, z), new Vector3(0.7f, 0.05f, 0.7f),
+                            lamp, false);
+                }
             var room = NewRoom("Championship Court", "VS KING SWAT", 124, 172, new Vector3(4, 0.05f, 134.5f), 4);
             room.IsBoss = true;
             room.Objective = "Score 15 points before KING SWAT does! Shots from far away are worth 3!";
@@ -524,6 +663,7 @@ namespace ZanderGame
                 var pos = new Vector3(side * 11.5f, 0, 150);
                 float yaw = side < 0 ? 90 : -90;
                 var m = ModelLibrary.Spawn("Bleachers", a, pos, yaw);
+                ModelLibrary.FaceByBounds(m, -1f);  // tiers rise away from the court (local -Z)
                 var grp = Build.Group("BleacherCols", a, pos, yaw);
                 for (int i = 0; i < 3; i++)
                 {
@@ -550,6 +690,7 @@ namespace ZanderGame
             // scoreboard
             var sbPos = new Vector3(0, 8.5f, 150);
             var sb = ModelLibrary.Spawn("Scoreboard", a, sbPos, 180);
+            ModelLibrary.FaceByMaterial(sb, "Led", 1f);   // screens + LED bar on the front (+Z)
             if (sb == null) Build.Box("Scoreboard", a, sbPos, new Vector3(4.2f, 2.1f, 0.4f), Mat.Color("#1E1E24"), false);
             arena.ScoreboardText = Build.Label("ZANDER 0 - 0 KING", a, sbPos + new Vector3(0, 0.1f, -0.25f), 0.4f, Gold, 0);
 
@@ -565,7 +706,7 @@ namespace ZanderGame
 
             // lights
             for (int i = 0; i < 4; i++)
-                Build.PointLight(a, new Vector3(i % 2 == 0 ? -8 : 8, 9, i < 2 ? 140 : 160), Color.white, 22f, 1.4f);
+                Build.PointLight(a, new Vector3(i % 2 == 0 ? -8 : 8, 11, i < 2 ? 140 : 160), Color.white, 24f, 1.6f);
             Sign(a, "CHAMPIONSHIP COURT", new Vector3(0, 8.5f, z1 - 0.12f), 0.8f, Gold, 0);
             Arena = arena;
         }

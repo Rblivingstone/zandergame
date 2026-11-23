@@ -178,6 +178,8 @@ def _emblem(c, x, z, r, kind, paint):
                                        [0.0, 0.55, 1.0])
     c.drawCircle(x, z, br, fill(C("#E8772E"), g))
     seam = stroke(C("#2A1A12"), br * 0.07, skia.Paint.kRound_Cap)
+    c.save()
+    c.clipPath(skia.Path().addCircle(x, z, br), doAntiAlias=True)
     c.drawLine(x - br, z, x + br, z, seam)
     c.drawLine(x, z - br, x, z + br, seam)
     for sx in (1, -1):
@@ -185,6 +187,7 @@ def _emblem(c, x, z, r, kind, paint):
         p.addArc(skia.Rect.MakeLTRB(x + sx * br * 0.55 - br * 0.8, z - br * 0.95, x + sx * br * 0.55 + br * 0.8, z + br * 0.95),
                  90 if sx > 0 else -90, 180)
         c.drawPath(p, seam)
+    c.restore()
     c.drawCircle(x, z, br, stroke(C("#2A1A12"), br * 0.06))
     c.drawCircle(x - br * 0.35, z + br * 0.4, br * 0.14, fill(C("#FFFFFF", 170)))   # anime shine
     if kind == "crown":
@@ -281,6 +284,117 @@ def flagstones(size=1024):
     return save(s, "Flagstones.png")
 
 
+def ceiling(size=1024):
+    """One tile = 4 x 4 m of shrine ceiling: dark wooden beams around recessed
+    navy coffers with a painted gold rune circle (seamless)."""
+    s = skia.Surface(size, size)
+    c = s.getCanvas()
+    c.clear(C("#4A3020"))
+    beam = size * 0.09
+    inner = skia.Rect.MakeLTRB(beam, beam, size - beam, size - beam)
+    # beam shading: light top/left edges, dark bottom/right
+    for k in range(0, 2):
+        o = k * size
+        c.drawRect(skia.Rect.MakeLTRB(0, o - beam * 0.15, size, o + beam * 0.15), fill(C("#6B4630")))
+        c.drawRect(skia.Rect.MakeLTRB(o - beam * 0.15, 0, o + beam * 0.15, size), fill(C("#6B4630")))
+    for y in (beam * 0.35, beam * 0.65):
+        c.drawLine(0, y, size, y, stroke(C("#3A2418", 120), 2))
+        c.drawLine(y, 0, y, size, stroke(C("#3A2418", 120), 2))
+    # coffer: stepped recess
+    for k, col in enumerate(("#26324F", "#1F2A45", "#1A2440")):
+        inset = beam * 0.25 * k
+        c.drawRect(skia.Rect.MakeLTRB(inner.left() + inset, inner.top() + inset, inner.right() - inset, inner.bottom() - inset),
+                   fill(C(col)))
+    c.drawRect(inner, stroke(C("#14100C"), 4))
+    # gold rune ring + basketball glyph
+    cx = cy = size / 2
+    r = size * 0.27
+    c.drawCircle(cx, cy, r, stroke(C("#FFC21A", 220), size * 0.012))
+    c.drawCircle(cx, cy, r * 0.82, stroke(C("#FFC21A", 120), size * 0.005))
+    for k in range(8):
+        a = k * math.pi / 4
+        c.drawCircle(cx + math.cos(a) * r, cy + math.sin(a) * r, size * 0.014, fill(C("#FFD966")))
+    g = stroke(C("#FFC21A", 160), size * 0.008, skia.Paint.kRound_Cap)
+    c.drawLine(cx - r * 0.5, cy, cx + r * 0.5, cy, g)
+    c.drawLine(cx, cy - r * 0.5, cx, cy + r * 0.5, g)
+    c.drawCircle(cx, cy, r * 0.5, g)
+    return save(s, "Ceiling.png")
+
+
+def banner(name, top_hex, bottom_hex, trim_hex, draw_icon, w=512, h=1024):
+    """A hanging cloth banner with a swallow-tail bottom (transparent outside)."""
+    s = skia.Surface(w, h)
+    c = s.getCanvas()
+    c.clear(skia.ColorTRANSPARENT)
+    tail = h * 0.12
+    shape = skia.Path()
+    shape.moveTo(0, 0)
+    shape.lineTo(w, 0)
+    shape.lineTo(w, h)
+    shape.lineTo(w / 2, h - tail)
+    shape.lineTo(0, h)
+    shape.close()
+    g = skia.GradientShader.MakeLinear([(0, 0), (0, h)], [C(top_hex), C(bottom_hex)])
+    c.drawPath(shape, fill(C(top_hex), g))
+    # soft cloth folds
+    for x in (w * 0.28, w * 0.72):
+        fg = skia.GradientShader.MakeLinear([(x - w * 0.08, 0), (x + w * 0.08, 0)],
+                                            [C("#000000", 0), C("#000000", 50), C("#000000", 0)], [0, 0.5, 1])
+        c.save()
+        c.clipPath(shape, doAntiAlias=True)
+        c.drawRect(skia.Rect.MakeLTRB(x - w * 0.08, 0, x + w * 0.08, h), fill(C("#000000"), fg))
+        c.restore()
+    inset = w * 0.06
+    trim = skia.Path()
+    trim.moveTo(inset, inset)
+    trim.lineTo(w - inset, inset)
+    trim.lineTo(w - inset, h - inset * 1.6)
+    trim.lineTo(w / 2, h - tail - inset)
+    trim.lineTo(inset, h - inset * 1.6)
+    trim.close()
+    c.drawPath(trim, stroke(C(trim_hex), w * 0.025))
+    c.drawRect(skia.Rect.MakeLTRB(0, 0, w, h * 0.05), fill(C(trim_hex)))
+    draw_icon(c, w / 2, h * 0.42, w * 0.32)
+    c.drawPath(shape, stroke(C("#1A1020"), 6))
+    return save(s, name)
+
+
+def _icon_crown99(c, x, y, r):
+    cw, ch = r * 1.5, r * 0.8
+    crown = skia.Path()
+    crown.moveTo(x - cw / 2, y)
+    for px, py in ((-0.5, -1.0), (-0.25, -0.45), (0.0, -1.15), (0.25, -0.45), (0.5, -1.0)):
+        crown.lineTo(x + px * cw, y + py * ch)
+    crown.lineTo(x + cw / 2, y)
+    crown.close()
+    c.drawPath(crown, fill(C("#FFC21A")))
+    c.drawPath(crown, stroke(C("#7A4B00"), r * 0.05))
+    c.drawRect(skia.Rect.MakeLTRB(x - cw / 2, y, x + cw / 2, y + r * 0.22), fill(C("#FFC21A")))
+    c.drawCircle(x, y + r * 0.11, r * 0.08, fill(C("#E0245E")))
+    font = skia.Font(skia.Typeface("DejaVu Sans", skia.FontStyle.Bold()), r * 1.15)
+    p = fill(C("#FFC21A"))
+    w = font.measureText("99")
+    c.drawString("99", x - w / 2, y + r * 1.55, font, p)
+
+
+def _icon_z8(c, x, y, r):
+    c.drawCircle(x, y, r, fill(C("#FAFAFA")))
+    c.drawCircle(x, y, r, stroke(C("#FFC21A"), r * 0.1))
+    zp = skia.Path()
+    zp.moveTo(x - r * 0.5, y - r * 0.45)
+    zp.lineTo(x + r * 0.5, y - r * 0.45)
+    zp.lineTo(x - r * 0.5, y + r * 0.45)
+    zp.lineTo(x + r * 0.5, y + r * 0.45)
+    c.drawPath(zp, stroke(C("#1F63E0"), r * 0.2, skia.Paint.kRound_Cap))
+    font = skia.Font(skia.Typeface("DejaVu Sans", skia.FontStyle.Bold()), r * 1.15)
+    w = font.measureText("8")
+    c.drawString("8", x - w / 2, y + r * 2.25, font, fill(C("#FFC21A")))
+
+
+def _icon_ball(c, x, y, r):
+    _emblem(c, x, y, r * 0.9, "ball", "#2C3E66")
+
+
 # Court list - must match LevelBuilder.cs
 COURTS = [
     ("Lobby", 16, 14, "#1F5FD6", False, False, False, 6.0, "ball"),
@@ -297,6 +411,10 @@ def main():
         court(name, w, l, paint, n, so, cen, three, emb)
     stone_wall()
     flagstones()
+    ceiling()
+    banner("Banner_King.png", "#7A35D0", "#4A1A8A", "#FFC21A", _icon_crown99)
+    banner("Banner_Zander.png", "#2A6FE8", "#163E96", "#FFC21A", _icon_z8)
+    banner("Banner_Shrine.png", "#2C3E66", "#1A2440", "#FFB347", _icon_ball)
 
 
 if __name__ == "__main__":

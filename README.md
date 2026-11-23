@@ -6,19 +6,32 @@ Clear three puzzle shrines, each harder than the last, using basketball
 skills. Then beat **KING SWAT**, a robot basketball king, in a shooting
 contest on the Championship Court.
 
-## Quick start
+## Running the game on your computer (Windows)
 
-1. Install **Unity 2022.3 LTS** or **Unity 6** (Built-in Render Pipeline; no extra packages needed).
-2. In Unity Hub choose **Add → Add project from disk** and pick `unity/ZanderHoopShrines`.
-3. Open the project. A setup step runs automatically. Then open
-   `Assets/Scenes/Main.unity` (or use the menu **Zander → Open Main Scene**) and press **Play**.
+1. **Get the files.** Download the code from GitHub: **Code → Download ZIP** on the branch
+   with the game, or `git clone` it. Then unzip it somewhere easy, like `Documents\zandergame`.
+2. **Install Unity Hub** from <https://unity.com/download> and sign in. The free *Personal* licence is fine.
+3. **Install the Unity editor.** In Unity Hub, go to **Installs → Install Editor** and pick **2022.3 LTS**
+   (the project was set up with 2022.3.50f1; any 2022.3 version works). The default
+   modules are enough on Windows.
+4. **Add the project.** In Unity Hub, go to **Projects → Add → Add project from disk** and choose the
+   `unity\ZanderHoopShrines` folder inside the download. If Hub says the editor version
+   differs, choose the 2022.3 version you installed.
+5. **Open it.** The first open takes a few minutes while Unity imports the models and textures.
+6. **Play.** Use the menu **Zander → Open Main Scene**, plug in the controller, and press the
+   **▶ Play** button at the top of the editor. Click the game view once if the mouse isn't captured.
+7. **Make a stand-alone game** (no Unity needed to play it). Use **Zander → Build for Windows (one click)**,
+   or close Unity and double-click `build_windows.bat`. The game ends up in
+   `unity\ZanderHoopShrines\Builds\Windows\ZanderHoopShrines.exe` (plus a zip to copy to another PC).
 
-The whole game (courts, puzzles, characters, boss, UI and sounds) builds itself
-at runtime, so **any scene works**: just press Play.
+**If something looks off**
+* *Pink objects:* use **Zander → Setup Project**, then press Play again.
+* *Unity asks about the Input System / restart:* click **Yes** and let it restart. The game reads the controller
+  through Unity's classic Input Manager (axes in `ProjectSettings/InputManager.asset`).
+* *Controller does nothing:* plug it in **before** pressing Play or starting the .exe.
 
-> The game reads the controller through Unity's classic Input Manager (the axes
-> are in `ProjectSettings/InputManager.asset`). If *Active Input Handling* is set
-> to the new Input System only, the setup step switches it to **Both**. Restart Unity when it asks.
+The whole game (courts, puzzles, characters, boss, UI and sounds) builds itself at runtime,
+so any scene works: just press Play.
 
 ## Controls
 

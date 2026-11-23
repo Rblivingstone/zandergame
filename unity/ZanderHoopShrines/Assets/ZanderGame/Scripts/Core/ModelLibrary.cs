@@ -64,6 +64,62 @@ namespace ZanderGame
             return container;
         }
 
+        // ------------------------------------------------------------------ facing
+        // Every model is authored to face local +Z. Importer settings can flip an FBX
+        // 180 degrees, so these checks measure the loaded model and turn it round if
+        // needed (and log it), so hoops, boards, characters... always face the right way.
+
+        static void Flip(GameObject container, string why)
+        {
+            if (container == null || container.transform.childCount == 0) return;
+            var inst = container.transform.GetChild(0);
+            inst.RotateAround(container.transform.position, container.transform.up, 180f);
+            Debug.LogWarning("[ZanderGame] Turned model '" + container.name + "' around to face forward (" + why + ").");
+        }
+
+        /// <summary>The model's overall bounds centre should lie on the given side of local Z.</summary>
+        public static void FaceByBounds(GameObject container, float expectedZSign)
+        {
+            if (container == null) return;
+            var b = WorldBounds(container);
+            float z = container.transform.InverseTransformPoint(b.center).z;
+            if (Mathf.Abs(z) > 0.02f && Mathf.Sign(z) != Mathf.Sign(expectedZSign)) Flip(container, "bounds");
+        }
+
+        /// <summary>The parts using a material whose name contains token should lie on the given side of local Z.</summary>
+        public static void FaceByMaterial(GameObject container, string token, float expectedZSign)
+        {
+            if (container == null) return;
+            foreach (var r in container.GetComponentsInChildren<Renderer>())
+            {
+                Mesh mesh = r is SkinnedMeshRenderer sk ? sk.sharedMesh :
+                    r.GetComponent<MeshFilter>() != null ? r.GetComponent<MeshFilter>().sharedMesh : null;
+                if (mesh == null) continue;
+                var mats = r.sharedMaterials;
+                for (int i = 0; i < mats.Length && i < mesh.subMeshCount; i++)
+                {
+                    if (mats[i] == null || !mats[i].name.Contains(token)) continue;
+                    var c = r.transform.TransformPoint(mesh.GetSubMesh(i).bounds.center);
+                    float z = container.transform.InverseTransformPoint(c).z;
+                    if (Mathf.Abs(z) > 0.01f && Mathf.Sign(z) != Mathf.Sign(expectedZSign)) Flip(container, token);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Characters: facing +Z, the character's LEFT hand is on the -X side
+        /// (Unity is left-handed). If it isn't, the model faces backwards.
+        /// </summary>
+        public static void FaceByLeftHand(GameObject container, string leftHandBone = "hand.L")
+        {
+            if (container == null) return;
+            var hand = FindDeep(container.transform, leftHandBone);
+            if (hand == null) return;
+            float x = container.transform.InverseTransformPoint(hand.position).x;
+            if (Mathf.Abs(x) > 0.02f && x > 0f) Flip(container, "left hand on the wrong side");
+        }
+
         public static Bounds WorldBounds(GameObject go)
         {
             var rs = go.GetComponentsInChildren<Renderer>();

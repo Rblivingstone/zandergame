@@ -5,6 +5,16 @@ namespace ZanderGame
     public static class Ballistics
     {
         public static float G => Mathf.Abs(Physics.gravity.y);
+        public const float CeilingClearance = 0.6f;
+
+        /// <summary>Height of the roof above a point (infinity outdoors).</summary>
+        public static float CeilingAbove(Vector3 p)
+        {
+            if (Physics.Raycast(p + Vector3.up * 0.2f, Vector3.up, out var hit, 40f, Physics.DefaultRaycastLayers,
+                    QueryTriggerInteraction.Ignore))
+                return hit.point.y;
+            return float.PositiveInfinity;
+        }
 
         /// <summary>
         /// Launch velocity that goes from 'from' to 'to' and peaks 'arc' metres above
@@ -14,6 +24,11 @@ namespace ZanderGame
         {
             float g = G;
             float apex = Mathf.Max(from.y, to.y) + Mathf.Max(0.1f, arc);
+            // indoor rooms: keep the arc under the ceiling
+            var mid = new Vector3((from.x + to.x) / 2, Mathf.Max(from.y, to.y), (from.z + to.z) / 2);
+            float ceiling = Mathf.Min(CeilingAbove(from), CeilingAbove(mid));
+            if (apex > ceiling - CeilingClearance)
+                apex = Mathf.Max(Mathf.Max(from.y, to.y) + 0.15f, ceiling - CeilingClearance);
             float up = apex - from.y;
             float down = apex - to.y;
             float vy = Mathf.Sqrt(2f * g * up);
