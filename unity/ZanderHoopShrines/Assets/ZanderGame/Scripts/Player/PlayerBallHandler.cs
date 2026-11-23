@@ -208,6 +208,15 @@ namespace ZanderGame
             return true;
         }
 
+        /// <summary>Hand Zander a ball (boss-contest inbound).</summary>
+        public void GiveBall(Basketball b)
+        {
+            if (b == null) return;
+            if (Ball != null && Ball != b) DropBall(false);
+            if (Ball == b) return;
+            Grab(b);
+        }
+
         public void GrabPlateBall()
         {
             if (Ball == null && PlateBallNearby != null) Grab(PlateBallNearby);

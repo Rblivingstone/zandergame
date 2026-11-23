@@ -23,6 +23,9 @@ namespace ZanderGame
         public BallDispenser Source;
         public BallOwner LastThrower = BallOwner.None;
         public bool PlayerCanGrab = true;
+        /// <summary>The boss-contest game ball: never despawns; if lost it reappears at ResetPoint.</summary>
+        public bool Persistent;
+        public Vector3 ResetPoint;
         public bool IsDunk;
         public bool ViaRebound;
         public Vector3 ShotOrigin;
@@ -158,6 +161,7 @@ namespace ZanderGame
 
         public void ScheduleDespawn(float seconds)
         {
+            if (Persistent) return;
             if (Source == null && !(Holder is BossController) && LastThrower != BallOwner.Boss) return;
             _despawnAt = Time.time + seconds;
         }
@@ -220,6 +224,14 @@ namespace ZanderGame
 
         public void LostBall()
         {
+            if (Persistent)
+            {
+                Body.SetVelocity(Vector3.zero);
+                transform.position = ResetPoint;
+                Body.position = ResetPoint;
+                _lastPos = ResetPoint;
+                return;
+            }
             if (Source != null || LastThrower == BallOwner.Boss) Poof();
             else
             {
@@ -233,6 +245,7 @@ namespace ZanderGame
 
         public void Poof()
         {
+            if (Persistent) return;
             Effects.Burst(transform.position, new Color(1f, 0.6f, 0.2f), 14, 2f);
             Destroy(gameObject);
         }

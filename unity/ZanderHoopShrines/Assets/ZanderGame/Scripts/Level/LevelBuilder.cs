@@ -626,16 +626,15 @@ namespace ZanderGame
                 }
             var room = NewRoom("Championship Court", "VS KING SWAT", 124, 172, new Vector3(4, 0.05f, 134.5f), 4);
             room.IsBoss = true;
-            room.Objective = "Score 15 points before KING SWAT does! Shots from far away are worth 3!";
+            room.Objective = "One ball, first to 15! Score at the NORTH hoop - shots from outside the big arc are worth 3!";
             room.Hints = new[]
             {
-                "Shoot at YOUR hoop (the north end). Shots from outside the big arc are worth 3 points!",
-                "King Swat grabs balls too and tries to STEAL yours - sprint away when he winds up!",
-                "When King Swat is dribbling, get close and press {USE} to steal it back!",
-                "When King Swat STOMPS, jump over the shockwave ring!",
-                "When he puts his arms up he will SWAT your shot - wait until he stops blocking.",
-                "Later the hoop starts moving - aim assist will lead it for you. Time your release!",
-                "Struggling? Press {EASY} for Super Shots."
+                "There's only ONE ball. After a basket, the other player gets it under that hoop.",
+                "King Swat plays tight defence: SPRINT ({SPRINT}) past him to get an open shot!",
+                "If he raises his arms, he may SWAT your shot - shoot from further away or dunk ({DUNK})!",
+                "When King Swat winds up for a steal, run! When HE dribbles, get close and press {USE} to steal it back.",
+                "Missed shots are loose balls - race him to the rebound!",
+                "Struggling? Press {EASY} for Super Shots (he steals and swats less too)."
             };
 
             var arena = new BossArena { Room = room, CourtCenter = new Vector3(0, 0, 150), BossSpawn = new Vector3(0, 0, 157),
@@ -651,13 +650,7 @@ namespace ZanderGame
             room.Hoops.Add(arena.PlayerHoop);
             room.Hoops.Add(arena.BossHoop);
 
-            foreach (var p in new[] { new Vector3(-9, 0, 151), new Vector3(9, 0, 151), new Vector3(0, 0, 145) })
-            {
-                var d = BallDispenser.Create("Rack", a, p, 1);
-                d.RespawnDelay = 0.4f;
-                arena.Racks.Add(d);
-                room.Dispensers.Add(d);
-            }
+            // one game ball only: the ShootingContest creates and manages it (no racks here)
 
             // bleachers + crowd
             foreach (var side in new[] { -1, 1 })

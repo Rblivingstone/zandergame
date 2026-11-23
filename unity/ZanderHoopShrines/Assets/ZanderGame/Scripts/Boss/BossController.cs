@@ -138,42 +138,138 @@ namespace ZanderGame
             return d.magnitude;
         }
 
+        float _backOffUntil;
+
+        /// <summary>Teleport next to a hoop holding the ball (inbound after Zander scores).</summary>
+        public void InboundAt(Vector3 spot, Vector3 facing, Basketball ball)
+        {
+            StopBrain();
+            transform.position = new Vector3(spot.x, 0f, spot.z);
+            FaceDir(facing);
+            Visual.rotation = _face;
+            if (ball != null)
+            {
+                var player = PlayerController.Instance;
+                if (player != null && player.Balls != null && player.Balls.Ball == ball) player.Balls.ForgetBall();
+                TakeBall(ball);
+            }
+            _brain = StartCoroutine(Brain());
+        }
+
+        /// <summary>Give Zander a moment after his inbound before pressing.</summary>
+        public void BackOff(float seconds)
+        {
+            _backOffUntil = Time.time + seconds;
+            StopBrain();
+            _brain = StartCoroutine(Brain());
+        }
+
         IEnumerator Brain()
         {
-            _nextSteal = Time.time + 4f;
-            yield return new WaitForSeconds(0.8f);
+            _nextSteal = Time.time + 2.5f;
+            yield return new WaitForSeconds(0.4f);
             while (true)
             {
                 int phase = Contest.Phase;
-                if (phase >= 2 && HeldBall == null && Time.time - _lastStomp > (phase >= 3 ? 9f : 11f))
+                if (Contest.Inbounding)
                 {
-                    yield return Stomp();
-                    _lastStomp = Time.time;
-                }
-                else if (phase >= 3 && HeldBall == null && PlayerHasBall && Time.time - _lastBlock > 12f)
-                {
-                    yield return Block();
-                    _lastBlock = Time.time;
+                    _moving = false;
+                    State = "idle";
                 }
                 else if (HeldBall != null)
-                    yield return Attack(phase);
-                else if (PlayerHasBall && Time.time > _nextSteal && FlatDist(PlayerPos) < 9f)
-                    yield return ChaseSteal(phase);
+                    yield return Attack(phase);                 // his ball: go score
+                else if (PlayerHasBall)
+                {
+                    if (phase >= 2 && Time.time - _lastStomp > 11f && FlatDist(PlayerPos) > 4f && FlatDist(PlayerPos) < 10f)
+                    {
+                        yield return Stomp();
+                        _lastStomp = Time.time;
+                    }
+                    else yield return Defend(phase);            // Zander's ball: lock him down
+                }
                 else
                 {
                     var ball = FindBall();
-                    if (ball != null) yield return Fetch(ball);
-                    else
-                    {
-                        // nothing loose: shadow Zander from the middle of the court
-                        var c = Arena.CourtCenter;
-                        var guard = Vector3.Lerp(c, PlayerPos, 0.5f);
-                        yield return WalkTo(new Vector3(guard.x, 0, guard.z), 1.2f, 3f);
-                        State = "idle";
-                    }
+                    if (ball != null) yield return Fetch(ball);  // loose ball: chase it
+                    else _moving = false;
                 }
                 yield return null;
             }
+        }
+
+        /// <summary>
+        /// Tight man-to-man defence: stay between Zander and his hoop, hands up when he
+        /// shoots (and swat it if he's close), and lunge for steals every few seconds.
+        /// </summary>
+        IEnumerator Defend(int phase)
+        {
+            State = "defend";
+            float speed = phase >= 3 ? 6.0f : phase == 2 ? 5.5f : 5.0f;   // Zander walks 5.2, sprints 8.2
+            float stealEvery = phase >= 3 ? 2.2f : phase == 2 ? 2.8f : 3.4f;
+            float handsUpUntil = 0f;
+            var player = PlayerController.Instance;
+            while (PlayerHasBall && HeldBall == null && !Contest.Inbounding)
+            {
+                var pp = PlayerPos;
+                var rim = Arena.PlayerHoop.RimCenter;
+                var toHoop = rim - pp;
+                toHoop.y = 0;
+                float hoopDist = toHoop.magnitude;
+                toHoop = hoopDist > 0.01f ? toHoop / hoopDist : Vector3.forward;
+                bool backingOff = Time.time < _backOffUntil;
+                float gap = backingOff ? 4.5f : Mathf.Min(1.9f, Mathf.Max(1.2f, hoopDist - 0.5f));
+                var guard = pp + toHoop * gap;
+                _moveTarget = new Vector3(guard.x, 0, guard.z);
+                _moveSpeed = speed;
+                _moving = FlatDist(_moveTarget) > 0.15f;
+                FaceDir(pp - transform.position);
+
+                // hands up when Zander gets a shot off near him
+                bool charging = player != null && player.Balls != null && player.Balls.Charging;
+                if (charging && FlatDist(pp) < 4.5f) handsUpUntil = Time.time + 0.9f;
+                bool handsUp = Time.time < handsUpUntil;
+                if (handsUp != Blocking)
+                {
+                    Blocking = handsUp;
+                    if (handsUp) Base("Block");
+                }
+
+                // steal attempts (never while he is mid-shot, that's what the hands are for)
+                if (!backingOff && !charging && Time.time > _nextSteal && FlatDist(pp) < 2.4f)
+                {
+                    _moving = false;
+                    Blocking = false;
+                    PlayOnce("Steal", 0.9f);
+                    Hud.Toast("King Swat goes for the STEAL!", new Color(0.8f, 0.6f, 1f), 0.9f);
+                    yield return new WaitForSeconds(0.35f);
+                    float chance = phase >= 3 ? 0.5f : phase == 2 ? 0.42f : 0.35f;
+                    if (PlayerBallHandler.SuperShots) chance -= 0.2f;
+                    if (PlayerHasBall && FlatDist(PlayerPos) < 2.7f && Random.value < chance)
+                    {
+                        var pb = player.Balls;
+                        var b = pb.Ball;
+                        pb.ForgetBall();
+                        TakeBall(b);
+                        GameAudio.Play("dunk", 0.8f, 1.4f);
+                        Rumble.Pulse(0.6f, 0.4f, 0.25f);
+                        Hud.Toast("STOLEN by King Swat!", new Color(1f, 0.5f, 0.5f), 1.2f);
+                    }
+                    else if (PlayerHasBall) Hud.Toast("Nice dodge!", new Color(0.5f, 1f, 0.6f), 0.9f);
+                    _nextSteal = Time.time + stealEvery;
+                    yield return new WaitForSeconds(0.3f);
+                    continue;
+                }
+                yield return null;
+            }
+            // the shot is in the air: keep the hands up a moment to try the swat
+            while (Time.time < handsUpUntil && HeldBall == null)
+            {
+                _moving = false;
+                SwatNearbyBalls();
+                yield return null;
+            }
+            Blocking = false;
+            _moving = false;
         }
 
         IEnumerator WalkTo(Vector3 target, float maxSeconds, float speed = 3.2f)
@@ -194,11 +290,11 @@ namespace ZanderGame
             float bestD = float.MaxValue;
             foreach (var b in Basketball.All)
             {
-                if (b == null || b.IsHeld || !Arena.Room.Contains(b.transform.position)) continue;
+                if (b == null || b.IsHeld || !b.PlayerCanGrab || !Arena.Room.Contains(b.transform.position)) continue;
                 var p = b.transform.position;
                 if (Mathf.Abs(p.x) > 14.5f || p.y > 2.5f) continue;
                 // let Zander's shots fly; only chase them once they've come down
-                if (!b.IsDocked && b.LastThrower == BallOwner.Player && Time.time - b.ReleaseTime < 1.6f) continue;
+                if (!b.IsDocked && b.LastThrower == BallOwner.Player && Time.time - b.ReleaseTime < 1.0f) continue;
                 float d = FlatDist(p) * (b.IsDocked ? 1.25f : 1f);   // slight preference for loose balls
                 if (d < bestD)
                 {
@@ -213,8 +309,8 @@ namespace ZanderGame
         {
             State = "fetch";
             float until = Time.time + 5f;
-            _moveSpeed = 4.0f;
-            while (Time.time < until && ball != null && !ball.IsHeld)
+            _moveSpeed = 6.0f;
+            while (Time.time < until && ball != null && !ball.IsHeld && ball.PlayerCanGrab && !Contest.Inbounding)
             {
                 var p = ball.transform.position;
                 if (FlatDist(p) < 1.4f && p.y < 2.6f)
@@ -260,9 +356,9 @@ namespace ZanderGame
             bool dunk = phase >= 3 ? Random.value < 0.45f : phase == 2 && Random.value < 0.2f;
             var spot = dunk ? rim + front * 1.3f : rim + front * Random.Range(3.5f, 6.5f) + side * Random.Range(-4f, 4f);
             spot.y = 0;
-            float until = Time.time + 6f;
+            float until = Time.time + 12f;     // long enough to dribble the full court after an inbound
             _moveTarget = spot;
-            _moveSpeed = 3.6f;
+            _moveSpeed = 4.2f;
             _moving = true;
             while (_moving && Time.time < until && HeldBall != null) yield return null;
             _moving = false;
@@ -335,48 +431,6 @@ namespace ZanderGame
             State = "idle";
         }
 
-        IEnumerator ChaseSteal(int phase)
-        {
-            State = "chase";
-            float until = Time.time + 3.5f;
-            float speed = phase >= 3 ? 4.8f : phase == 2 ? 4.5f : 4.2f;   // Zander sprints at 8.2
-            while (Time.time < until && PlayerHasBall)
-            {
-                var pp = PlayerPos;
-                if (FlatDist(pp) < 2.3f)
-                {
-                    // wind-up: a fair warning so Zander can dodge
-                    _moving = false;
-                    FaceDir(pp - transform.position);
-                    PlayOnce("Steal", 0.9f);
-                    Hud.Toast("King Swat goes for the STEAL!", new Color(0.8f, 0.6f, 1f), 1.0f);
-                    yield return new WaitForSeconds(0.35f);
-                    float chance = phase >= 3 ? 0.6f : phase == 2 ? 0.5f : 0.4f;
-                    if (PlayerBallHandler.SuperShots) chance -= 0.2f;
-                    if (PlayerHasBall && FlatDist(PlayerPos) < 2.7f && Random.value < chance)
-                    {
-                        var pb = PlayerController.Instance.Balls;
-                        var b = pb.Ball;
-                        pb.ForgetBall();
-                        TakeBall(b);
-                        GameAudio.Play("dunk", 0.8f, 1.4f);
-                        Rumble.Pulse(0.6f, 0.4f, 0.25f);
-                        Hud.Toast("STOLEN by King Swat!", new Color(1f, 0.5f, 0.5f), 1.2f);
-                    }
-                    else if (PlayerHasBall) Hud.Toast("Nice dodge!", new Color(0.5f, 1f, 0.6f), 1.0f);
-                    yield return new WaitForSeconds(0.45f);
-                    break;
-                }
-                _moveTarget = new Vector3(pp.x, 0, pp.z);
-                _moveSpeed = speed;
-                _moving = true;
-                yield return null;
-            }
-            _moving = false;
-            _nextSteal = Time.time + (phase >= 3 ? 4f : phase == 2 ? 5f : 6f);
-            State = "idle";
-        }
-
         IEnumerator Stomp()
         {
             State = "stomp";
@@ -392,44 +446,31 @@ namespace ZanderGame
             yield return new WaitForSeconds(0.7f);
         }
 
-        IEnumerator Block()
-        {
-            State = "block";
-            var rim = Arena.PlayerHoop.RimCenter;
-            var guard = new Vector3(rim.x, 0, rim.z - 3.4f);
-            yield return WalkTo(guard, 3f);
-            FaceDir(Vector3.back);
-            Blocking = true;
-            Base("Block");
-            Hud.Toast("KING SWAT is guarding! Wait for his arms to drop!", new Color(0.8f, 0.6f, 1f), 1.6f);
-            float until = Time.time + 3.5f;
-            while (Time.time < until)
-            {
-                var hoopRim = Arena.PlayerHoop.RimCenter;
-                var g = new Vector3(hoopRim.x, 0, hoopRim.z - 3.4f);
-                transform.position = Vector3.MoveTowards(transform.position, g, 3f * Time.deltaTime);
-                SwatNearbyBalls();
-                yield return null;
-            }
-            Blocking = false;
-            Base("Idle");
-            yield return WalkTo(Arena.CourtCenter + new Vector3(Random.Range(-5f, 5f), 0, 4f), 3f);
-        }
+        readonly System.Collections.Generic.HashSet<Basketball> _swatRolled = new System.Collections.Generic.HashSet<Basketball>();
+        float _swatRollReset;
 
         void SwatNearbyBalls()
         {
+            if (Time.time > _swatRollReset) _swatRolled.Clear();
             var reach = transform.position + Vector3.up * (Height + 0.4f);
+            int phase = Contest != null ? Contest.Phase : 1;
+            float chance = phase >= 3 ? 0.5f : phase == 2 ? 0.4f : 0.3f;
+            if (PlayerBallHandler.SuperShots) chance -= 0.2f;
             foreach (var b in Basketball.All.ToArray())
             {
                 if (b == null || b.IsHeld || b.IsDunk || b.LastThrower != BallOwner.Player) continue;
                 if ((b.transform.position - reach).magnitude > 3.0f) continue;
+                if (_swatRolled.Contains(b)) continue;
+                _swatRolled.Add(b);
+                _swatRollReset = Time.time + 2f;
+                if (Random.value > chance) continue;       // he got a fingertip on air - shot is still good
                 var away = b.transform.position - transform.position;
                 away.y = 0;
                 b.LastThrower = BallOwner.None;
-                b.Body.SetVelocity(away.normalized * 7f + Vector3.up * 3f + Vector3.back * 4f);
+                b.Body.SetVelocity(away.normalized * 7f + Vector3.up * 3f);
                 GameAudio.PlayAt("dunk", b.transform.position, 1f, 1.3f);
                 Effects.Burst(b.transform.position, new Color(0.8f, 0.4f, 1f), 16, 4f);
-                Hud.Toast("SWATTED! Wait for his arms to come down!", new Color(0.8f, 0.6f, 1f), 1.2f);
+                Hud.Toast("SWATTED by King Swat!", new Color(0.8f, 0.6f, 1f), 1.2f);
             }
         }
 
@@ -481,7 +522,7 @@ namespace ZanderGame
                 else
                 {
                     transform.position += to.normalized * Mathf.Min(to.magnitude, _moveSpeed * dt);
-                    FaceDir(to);
+                    if (State != "defend") FaceDir(to);
                 }
             }
             else if (State == "idle" || State == "walk")
@@ -492,6 +533,7 @@ namespace ZanderGame
             if (State != "defeated")
             {
                 if (!Blocking) Base(_moving ? "Walk" : "Idle");
+                else SwatNearbyBalls();
             }
 
             if (_clips != null) _clips.Tick(dt);

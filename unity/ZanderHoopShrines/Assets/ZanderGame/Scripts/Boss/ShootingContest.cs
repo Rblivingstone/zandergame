@@ -21,6 +21,72 @@ namespace ZanderGame
         public string Banner { get; private set; }
         public bool Active => CurrentState != ContestState.Waiting;
 
+        /// <summary>The one and only ball in the arena during the contest.</summary>
+        public Basketball GameBall { get; private set; }
+        /// <summary>True while the ball drops through the net and gets handed to the other player.</summary>
+        public bool Inbounding { get; private set; }
+
+        Vector3 CenterSpot => Arena.CourtCenter + Vector3.up * 1.5f;
+
+        Basketball EnsureGameBall()
+        {
+            if (GameBall == null)
+            {
+                GameBall = Basketball.Create(CenterSpot);
+                GameBall.Persistent = true;
+                GameBall.name = "GameBall";
+            }
+            GameBall.ResetPoint = CenterSpot;
+            GameBall.PlayerCanGrab = true;
+            return GameBall;
+        }
+
+        /// <summary>Removes every ball in the arena except the game ball.</summary>
+        void DespawnExtraBalls()
+        {
+            var player = PlayerController.Instance;
+            foreach (var b in Basketball.All.ToArray())
+            {
+                if (b == null || b == GameBall || !Arena.Room.Contains(b.transform.position)) continue;
+                if (player != null && player.Balls != null && player.Balls.Ball == b) player.Balls.ForgetBall();
+                b.Persistent = false;
+                b.Poof();
+            }
+        }
+
+        /// <summary>After a basket the OTHER player appears by the hoop that was scored on, holding the ball.</summary>
+        IEnumerator InboundAfterScore(Hoop scoredOn, bool toBoss)
+        {
+            Inbounding = true;
+            var ball = EnsureGameBall();
+            ball.PlayerCanGrab = false;
+            yield return new WaitForSeconds(0.9f);      // let it drop through the net
+            if (CurrentState != ContestState.Playing) { Inbounding = false; yield break; }
+            var rim = scoredOn.RimCenter;
+            var front = scoredOn.transform.forward;
+            front.y = 0;
+            front.Normalize();
+            var spot = new Vector3(rim.x, 0.05f, rim.z) + front * 1.8f;
+            ball.PlayerCanGrab = true;
+            ball.Body.SetVelocity(Vector3.zero);
+            if (toBoss)
+            {
+                Boss.InboundAt(spot, front, ball);
+                Hud.Toast("King Swat's ball!", new Color(0.8f, 0.6f, 1f), 1.0f);
+            }
+            else
+            {
+                var p = PlayerController.Instance;
+                p.Teleport(spot, Quaternion.LookRotation(front).eulerAngles.y);
+                p.Balls.GiveBall(ball);
+                Boss.BackOff(2.0f);
+                Hud.Toast("Your ball - go!", new Color(0.4f, 0.8f, 1f), 1.0f);
+            }
+            GameAudio.Play("whistle", 0.6f);
+            Inbounding = false;
+        }
+
+
         float _cheer;
         int _lastPhase = 1;
         float[] _fanBaseY;
@@ -42,6 +108,8 @@ namespace ZanderGame
             if (CurrentState == ContestState.Waiting && p != null && Arena.Room.Contains(p.transform.position) &&
                 p.transform.position.z > Arena.StartLineZ)
                 StartCoroutine(IntroRoutine());
+
+            if (Active && CurrentState != ContestState.Won) DespawnExtraBalls();
 
             // crowd
             _cheer = Mathf.MoveTowards(_cheer, 0, Time.deltaTime * 0.5f);
@@ -72,6 +140,8 @@ namespace ZanderGame
         {
             CurrentState = ContestState.Intro;
             Arena.Barrier.SetActive(true);
+            DespawnExtraBalls();
+            EnsureGameBall().transform.position = CenterSpot;
             PlayerScore = BossScore = 0;
             _lastPhase = 1;
             Arena.PlayerHoopRig.Moving = false;
@@ -94,6 +164,8 @@ namespace ZanderGame
             Hud.Banner("GO!", 1f);
             GameAudio.Play("whistle");
             CurrentState = ContestState.Playing;
+            DespawnExtraBalls();
+            PlayerController.Instance.Balls.GiveBall(EnsureGameBall());   // Zander gets the tip-off
             Boss.StartBrain();
         }
 
@@ -111,6 +183,7 @@ namespace ZanderGame
             Boss.PlayHit();
             UpdateBoard();
             if (PlayerScore >= TargetScore) StartCoroutine(WinRoutine());
+            else StartCoroutine(InboundAfterScore(h, true));
         }
 
         void OnBossHoop(Hoop h, Basketball b)
@@ -120,6 +193,7 @@ namespace ZanderGame
             Hud.Toast("King Swat scores! +2", new Color(0.8f, 0.6f, 1f), 1.0f);
             UpdateBoard();
             if (BossScore >= TargetScore) StartCoroutine(LoseRoutine());
+            else StartCoroutine(InboundAfterScore(h, false));
         }
 
         IEnumerator WinRoutine()
@@ -175,9 +249,13 @@ namespace ZanderGame
             Boss.ResetToSpawn();
             var gm = GameManager.Instance;
             gm.Player.Balls.DropBall(false);
-            foreach (var b in Basketball.All.ToArray())
-                if (b != null && b.LastThrower == BallOwner.Boss) Destroy(b.gameObject);
-            foreach (var r in Arena.Racks) r.ResetBalls();
+            Inbounding = false;
+            if (GameBall != null)
+            {
+                gm.Player.Balls.ForgetBall();
+                Destroy(GameBall.gameObject);
+                GameBall = null;
+            }
             PlayerScore = BossScore = 0;
             Arena.PlayerHoopRig.Moving = false;
             UpdateBoard();
