@@ -81,7 +81,10 @@ blender/                      Python scripts that generate every 3D model
   zg_anime.py                 smooth anime modelling helpers (skin bodies, heads, hair, decals, weights)
   zander_character.py         Zander, rigged, with 9 animations
   boss_character.py           King Swat, rigged, with 8 animations
-  props.py                    ball, hoop, plates, gate, dispenser, bounce pad, rebound board, bleachers...
+  props.py                    ball, hoop, plates, gate, dispenser, bounce pad, rebound board, lift, bridge...
+  zg_paint.py / zg_bake.py    hand-painted textures (vector art + 3D painting) for characters
+  zg_proppaint.py             hand-painted textures for the props
+  courts.py                   painted court floors, shrine stone walls and flagstones (Resources/Textures)
   render_preview.py           renders preview PNGs of any generated .blend
 unity/ZanderHoopShrines/      the Unity project
   Assets/ZanderGame/Scripts   game code (Core, Player, Gameplay, Level, Boss, UI)
@@ -98,6 +101,7 @@ You need Blender 3.6 or newer, or the `bpy` Python module (`pip install bpy`, Py
 blender -b -P blender/zander_character.py
 blender -b -P blender/boss_character.py
 blender -b -P blender/props.py
+python blender/courts.py        # courts + walls (needs skia-python)
 ```
 
 or, with the pip module:

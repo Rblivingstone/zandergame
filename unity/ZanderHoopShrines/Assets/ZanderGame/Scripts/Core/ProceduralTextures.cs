@@ -124,6 +124,14 @@ namespace ZanderGame
         public static Texture2D Stone()
         {
             if (_stone != null) return _stone;
+            // hand-painted stone from blender/courts.py, if present
+            var painted = Resources.Load<Texture2D>("Textures/StoneWall");
+            if (painted != null)
+            {
+                painted.wrapMode = TextureWrapMode.Repeat;
+                _stone = painted;
+                return _stone;
+            }
             const int n = 256;
             var px = new Color32[n * n];
             Color mortar = Mat.Hex("#2E3340");

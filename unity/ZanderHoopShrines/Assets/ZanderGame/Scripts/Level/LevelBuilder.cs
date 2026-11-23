@@ -41,9 +41,22 @@ namespace ZanderGame
         // =====================================================================
         GameObject Area(string name) => Build.Group(name, _root);
 
-        void CourtFloor(Transform parent, float x0, float x1, float z0, float z1, float y, Color paint,
+        /// <summary>
+        /// A basketball court floor. Uses the hand-painted court Resources/Textures/Court_[name]
+        /// (made by blender/courts.py); falls back to a court generated in code.
+        /// </summary>
+        void CourtFloor(string name, Transform parent, float x0, float x1, float z0, float z1, float y, Color paint,
             bool hoopNorth, bool hoopSouth = false, bool center = false, float threePt = 6f)
         {
+            var painted = Resources.Load<Texture2D>("Textures/Court_" + name);
+            if (painted != null)
+            {
+                painted.wrapMode = TextureWrapMode.Clamp;
+                painted.anisoLevel = 8;
+                Build.Floor("Floor", parent, new Vector3((x0 + x1) / 2, y, (z0 + z1) / 2), x1 - x0, z1 - z0,
+                    Mat.Textured(painted, Vector2.one, 0.55f));
+                return;
+            }
             var style = ProceduralTextures.CourtStyle.Default(paint);
             style.HoopNorth = hoopNorth;
             style.HoopSouth = hoopSouth;
@@ -54,10 +67,40 @@ namespace ZanderGame
             Build.Floor("Floor", parent, new Vector3((x0 + x1) / 2, y, (z0 + z1) / 2), x1 - x0, z1 - z0, mat);
         }
 
+        /// <summary>Painted flagstone floor (corridors, ledges); plain colour if the texture is missing.</summary>
+        static Material Flagstones(float w, float l)
+        {
+            var tex = Resources.Load<Texture2D>("Textures/Flagstones");
+            if (tex == null) return Mat.Color("#4E5668", 0.2f);
+            tex.wrapMode = TextureWrapMode.Repeat;
+            return Mat.Textured(tex, new Vector2(w / 2f, l / 2f), 0.3f);
+        }
+
         void PlainFloor(Transform parent, float x0, float x1, float z0, float z1, float y, string hex)
         {
             Build.Floor("Floor", parent, new Vector3((x0 + x1) / 2, y, (z0 + z1) / 2), x1 - x0, z1 - z0,
-                Mat.Color(hex, 0.2f));
+                Flagstones(x1 - x0, z1 - z0));
+        }
+
+        /// <summary>
+        /// A stone wall segment with a dark painted base course and a light capstone ledge
+        /// on top (the anime shrine look). Trims have no colliders.
+        /// </summary>
+        static void StoneWall(string name, Transform parent, Vector3 center, Vector3 size, bool baseCourse = true,
+            bool cap = true)
+        {
+            Build.StoneBox(name, parent, center, size);
+            float bottom = center.y - size.y / 2, top = center.y + size.y / 2;
+            if (baseCourse && size.y > 1.2f)
+                Build.Box(name + "_Base", parent, new Vector3(center.x, bottom + 0.22f, center.z),
+                    new Vector3(size.x + 0.12f, 0.44f, size.z + 0.12f), Mat.Color("#363C4D", 0.2f), false);
+            if (cap)
+            {
+                Build.Box(name + "_Cap", parent, new Vector3(center.x, top + 0.09f, center.z),
+                    new Vector3(size.x + 0.22f, 0.18f, size.z + 0.22f), Mat.Color("#7C879E", 0.2f), false);
+                Build.Box(name + "_CapTrim", parent, new Vector3(center.x, top - 0.04f, center.z),
+                    new Vector3(size.x + 0.08f, 0.08f, size.z + 0.08f), Mat.Color("#2C3242", 0.2f), false);
+            }
         }
 
         /// <summary>
@@ -72,8 +115,8 @@ namespace ZanderGame
             float yTop = yBottom + height;
             float yMid = (yBottom + yTop) / 2;
             // east / west
-            Build.StoneBox("WallW", parent, new Vector3(x0 - t / 2, yMid, (z0 + z1) / 2), new Vector3(t, height, z1 - z0 + 2 * t));
-            Build.StoneBox("WallE", parent, new Vector3(x1 + t / 2, yMid, (z0 + z1) / 2), new Vector3(t, height, z1 - z0 + 2 * t));
+            StoneWall("WallW", parent, new Vector3(x0 - t / 2, yMid, (z0 + z1) / 2), new Vector3(t, height, z1 - z0 + 2 * t));
+            StoneWall("WallE", parent, new Vector3(x1 + t / 2, yMid, (z0 + z1) / 2), new Vector3(t, height, z1 - z0 + 2 * t));
             EndWall(parent, x0, x1, z0 - t / 2, yBottom, yTop, southGap, southGapY0, southGapY1, "S");
             EndWall(parent, x0, x1, z1 + t / 2, yBottom, yTop, northGap, northGapY0, northGapY1, "N");
             // glowing trim strip along the top of the side walls
@@ -89,14 +132,14 @@ namespace ZanderGame
             float h = yTop - yBottom;
             if (gap <= 0)
             {
-                Build.StoneBox("Wall" + tag, parent, new Vector3((x0 + x1) / 2, (yBottom + yTop) / 2, zc), new Vector3(x1 - x0, h, t));
+                StoneWall("Wall" + tag, parent, new Vector3((x0 + x1) / 2, (yBottom + yTop) / 2, zc), new Vector3(x1 - x0, h, t));
                 return;
             }
             float g = gap / 2;
-            Build.StoneBox("Wall" + tag + "L", parent, new Vector3((x0 - g) / 2, (yBottom + yTop) / 2, zc), new Vector3(-g - x0, h, t));
-            Build.StoneBox("Wall" + tag + "R", parent, new Vector3((x1 + g) / 2, (yBottom + yTop) / 2, zc), new Vector3(x1 - g, h, t));
+            StoneWall("Wall" + tag + "L", parent, new Vector3((x0 - g) / 2, (yBottom + yTop) / 2, zc), new Vector3(-g - x0, h, t));
+            StoneWall("Wall" + tag + "R", parent, new Vector3((x1 + g) / 2, (yBottom + yTop) / 2, zc), new Vector3(x1 - g, h, t));
             if (gy1 < yTop)
-                Build.StoneBox("Wall" + tag + "Top", parent, new Vector3(0, (gy1 + yTop) / 2, zc), new Vector3(gap, yTop - gy1, t));
+                StoneWall("Wall" + tag + "Top", parent, new Vector3(0, (gy1 + yTop) / 2, zc), new Vector3(gap, yTop - gy1, t), false);
             if (gy0 > yBottom)
                 Build.StoneBox("Wall" + tag + "Bottom", parent, new Vector3(0, (yBottom + gy0) / 2, zc), new Vector3(gap, gy0 - yBottom, t));
         }
@@ -104,8 +147,8 @@ namespace ZanderGame
         void Corridor(Transform parent, float z0, float z1, float y, float width = 4.4f)
         {
             PlainFloor(parent, -width / 2, width / 2, z0, z1, y, "#4E5668");
-            Build.StoneBox("CorW", parent, new Vector3(-width / 2 - 0.5f, y + 3f, (z0 + z1) / 2), new Vector3(1, 6, z1 - z0));
-            Build.StoneBox("CorE", parent, new Vector3(width / 2 + 0.5f, y + 3f, (z0 + z1) / 2), new Vector3(1, 6, z1 - z0));
+            StoneWall("CorW", parent, new Vector3(-width / 2 - 0.5f, y + 3f, (z0 + z1) / 2), new Vector3(1, 6, z1 - z0));
+            StoneWall("CorE", parent, new Vector3(width / 2 + 0.5f, y + 3f, (z0 + z1) / 2), new Vector3(1, 6, z1 - z0));
             Build.PointLight(parent, new Vector3(0, y + 3.5f, (z0 + z1) / 2), Mat.Hex("#FFB347"), 8f, 1.2f);
         }
 
@@ -158,7 +201,7 @@ namespace ZanderGame
         {
             var a = Area("Lobby").transform;
             const float x0 = -8, x1 = 8, z0 = 0, z1 = 14;
-            CourtFloor(a, x0, x1, z0, z1, 0, Mat.Hex("#1F5FD6"), false);
+            CourtFloor("Lobby", a, x0, x1, z0, z1, 0, Mat.Hex("#1F5FD6"), false);
             Walls(a, x0, x1, z0, z1, 0, 7, 0, 3.6f);
             Pillars(a, x0, x1, z0, z1, 0);
             var room = NewRoom("Lobby", "Warm up those shooting hands!", -10, 16, new Vector3(0, 0.05f, 3), 0);
@@ -191,7 +234,7 @@ namespace ZanderGame
         {
             var a = Area("Shrine1").transform;
             const float x0 = -9, x1 = 9, z0 = 18, z1 = 42;
-            CourtFloor(a, x0, x1, z0, z1, 0, Mat.Hex("#E8772E"), true);
+            CourtFloor("Shrine1", a, x0, x1, z0, z1, 0, Mat.Hex("#E8772E"), true);
             Walls(a, x0, x1, z0, z1, 0, 8, 3.6f, 3.0f);
             Pillars(a, x0, x1, z0, z1, 0);
             var room = NewRoom("Shrine 1: Warm-Up", "Plates and Hoops", 16, 44, new Vector3(0, 0.05f, 20), 1);
@@ -257,7 +300,7 @@ namespace ZanderGame
             var a = Area("Shrine2").transform;
             const float x0 = -11, x1 = 11, z0 = 46, z1 = 78;
             const float ledgeZ = 66, ledgeY = 4;
-            CourtFloor(a, x0, x1, z0, z1, 0, Mat.Hex("#3CE07A"), false, true);
+            CourtFloor("Shrine2", a, x0, x1, z0, z1, 0, Mat.Hex("#3CE07A"), false, true);
             Walls(a, x0, x1, z0, z1, 0, 10, 3.6f, 3.0f, 0, 4.3f, ledgeY, ledgeY + 4.3f);
             Pillars(a, x0, x1, z0, ledgeZ, 0);
             var room = NewRoom("Shrine 2: Bounce & Dunk", "Fly high!", 44, 80, new Vector3(0, 0.05f, 48), 2);
@@ -274,7 +317,7 @@ namespace ZanderGame
             // ledge
             Build.StoneBox("Ledge", a, new Vector3(0, ledgeY / 2, (ledgeZ + z1) / 2), new Vector3(x1 - x0, ledgeY, z1 - ledgeZ));
             var ledgeFloor = Build.Floor("LedgeTop", a, new Vector3(0, ledgeY + 0.01f, (ledgeZ + z1) / 2), x1 - x0, z1 - ledgeZ,
-                Mat.Color("#4E5668", 0.2f), 0.2f);
+                Flagstones(x1 - x0, z1 - ledgeZ), 0.2f);
             ledgeFloor.name = "LedgeTop";
             var glow = Mat.Glow(Mat.Hex("#FFB347"), Mat.Hex("#FF9A1F"), 1.2f);
             Build.Box("LedgeTrim", a, new Vector3(0, ledgeY - 0.1f, ledgeZ - 0.02f), new Vector3(x1 - x0, 0.12f, 0.06f), glow, false);
@@ -284,7 +327,7 @@ namespace ZanderGame
 
             // bounce pad + dunk tower
             BouncePad.Create("Bounce Pad", a, new Vector3(-6, 0, 57.4f), 5.8f);
-            Build.StoneBox("DunkTower", a, new Vector3(-6, 1.7f, 59.9f), new Vector3(1.4f, 3.4f, 1.4f));
+            StoneWall("DunkTower", a, new Vector3(-6, 1.7f, 59.9f), new Vector3(1.4f, 3.4f, 1.4f));
             var dunkHoop = Hoop.Create("Dunk Hoop", a, new Vector3(-6, 3.4f, 58.7f), 180, Purple, HoopMode.Latch, "DUNK ONLY");
             dunkHoop.DunkOnly = true;
             room.Hoops.Add(dunkHoop);
@@ -337,10 +380,10 @@ namespace ZanderGame
             if (n.y < 0) n = -n;
             var rampCenter = new Vector3(0, ledgeY / 2, (rz0 + rz1) / 2) - n * 0.25f;
             var len = new Vector2(rz1 - rz0, ledgeY).magnitude;
-            Build.Box("RampDeck", c, rampCenter, new Vector3(4.4f, 0.5f, len + 0.4f), Mat.Color("#4E5668", 0.2f), true,
+            Build.Box("RampDeck", c, rampCenter, new Vector3(4.4f, 0.5f, len + 0.4f), Flagstones(4.4f, len + 0.4f), true,
                 Quaternion.LookRotation(d, n));
-            Build.StoneBox("RampW", c, new Vector3(-2.7f, 3.5f, (rz0 + rz1) / 2), new Vector3(1, 9, rz1 - rz0));
-            Build.StoneBox("RampE", c, new Vector3(2.7f, 3.5f, (rz0 + rz1) / 2), new Vector3(1, 9, rz1 - rz0));
+            StoneWall("RampW", c, new Vector3(-2.7f, 3.5f, (rz0 + rz1) / 2), new Vector3(1, 9, rz1 - rz0));
+            StoneWall("RampE", c, new Vector3(2.7f, 3.5f, (rz0 + rz1) / 2), new Vector3(1, 9, rz1 - rz0));
             Build.PointLight(c, new Vector3(0, 5, 82), Mat.Hex("#FFB347"), 9f, 1.2f);
         }
 
@@ -359,8 +402,8 @@ namespace ZanderGame
             const float x0 = -12, x1 = 12, z0 = 86, z1 = 122;
             const float pit0 = 98, pit1 = 106;
             const float pitY = -9f;
-            CourtFloor(a, x0, x1, z0, pit0, 0, Mat.Hex("#C86BFF"), false);
-            CourtFloor(a, x0, x1, pit1, z1, 0, Mat.Hex("#C86BFF"), true);
+            CourtFloor("Shrine3South", a, x0, x1, z0, pit0, 0, Mat.Hex("#C86BFF"), false);
+            CourtFloor("Shrine3North", a, x0, x1, pit1, z1, 0, Mat.Hex("#C86BFF"), true);
             // pit
             var pitMat = Mat.Glow(Mat.Hex("#0B1630"), Mat.Hex("#1E4BFF"), 0.6f);
             Build.Box("PitGlow", a, new Vector3(0, pitY, (pit0 + pit1) / 2), new Vector3(x1 - x0, 0.2f, pit1 - pit0), pitMat);
@@ -410,7 +453,7 @@ namespace ZanderGame
             var red = Hoop.Create("Red Hoop", a, new Vector3(-6.5f, 0, 120), 180, Red, HoopMode.Latch, "RED");
             var blue = Hoop.Create("Blue Hoop", a, new Vector3(10.4f, 0, 113), 90, Blue, HoopMode.Latch, "BLUE");
             blue.RequiresRebound = true;
-            Build.StoneBox("GreenTower", a, new Vector3(-9, 2.5f, 110.2f), new Vector3(2.4f, 5f, 2.4f));
+            StoneWall("GreenTower", a, new Vector3(-9, 2.5f, 110.2f), new Vector3(2.4f, 5f, 2.4f));
             var green = Hoop.Create("Green Hoop", a, new Vector3(-9, 5f, 110.5f), 0, Green, HoopMode.Latch, "GREEN");
             green.RequiresRebound = true;
             room.Hoops.Add(red);
@@ -440,7 +483,7 @@ namespace ZanderGame
         {
             var a = Area("Arena").transform;
             const float x0 = -15, x1 = 15, z0 = 130, z1 = 170;
-            CourtFloor(a, x0, x1, z0, z1, 0, Mat.Hex("#6A2DB8"), true, true, true, 6.5f);
+            CourtFloor("Arena", a, x0, x1, z0, z1, 0, Mat.Hex("#6A2DB8"), true, true, true, 6.5f);
             Walls(a, x0, x1, z0, z1, 0, 12, 3.6f, 0);
             var room = NewRoom("Championship Court", "VS KING SWAT", 124, 172, new Vector3(4, 0.05f, 134.5f), 4);
             room.IsBoss = true;

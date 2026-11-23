@@ -143,6 +143,16 @@ scene.collection.objects.link(cam)
 scene.camera = cam
 
 views = {"front": (0, -1, 0.15), "side": (1, 0, 0.1), "back": (0, 1, 0.1), "three_quarter": (-0.7, -1, 0.35)}
+if os.environ.get("ZG_CAM"):
+    v = [float(t) for t in os.environ["ZG_CAM"].split(",")]
+    cam_data.type = "PERSP"
+    cam_data.lens = 24
+    cam.location = Vector(v[0:3])
+    cam.rotation_euler = (Vector(v[3:6]) - cam.location).to_track_quat("-Z", "Y").to_euler()
+    scene.render.resolution_x, scene.render.resolution_y = 1280, 720
+    scene.render.filepath = f"{prefix}_scene.png"
+    bpy.ops.render.render(write_still=True)
+    sys.exit(0)
 only = os.environ.get("ZG_VIEWS")
 if only:
     views = {k: v for k, v in views.items() if k in only.split(",")}
