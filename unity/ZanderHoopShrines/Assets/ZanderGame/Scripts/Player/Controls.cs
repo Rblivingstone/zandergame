@@ -21,7 +21,7 @@ namespace ZanderGame
     ///   Hint                H                         LB
     ///   Super Shots         Tab                       View (two squares)
     ///   Pause               Esc                       Menu (three lines)
-    ///   Restart room        R                         Pause menu
+    ///   Restart room        P (away from E)           Pause menu
     ///
     /// The controller axes are defined in ProjectSettings/InputManager.asset
     /// (ZG_LeftX, ZG_LeftY, ZG_RightX, ZG_RightY, ZG_LT, ZG_RT, ZG_DPadX, ZG_DPadY).
@@ -181,7 +181,8 @@ namespace ZanderGame
         public static bool InteractDown => Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(PadY);
         public static bool HintDown => Input.GetKeyDown(KeyCode.H) || Input.GetKeyDown(PadLB);
         public static bool EasyToggleDown => Input.GetKeyDown(KeyCode.Tab) || Input.GetKeyDown(PadView);
-        public static bool RestartDown => Input.GetKeyDown(KeyCode.R);
+        // P, not R: R sits right next to E (steal / use) and was too easy to hit by accident
+        public static bool RestartDown => Input.GetKeyDown(KeyCode.P);
         public static bool RecenterDown => Input.GetKeyDown(PadRB) || Input.GetKeyDown(PadR3);
         public static bool PauseDown => Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(PadMenu);
 
@@ -222,7 +223,7 @@ namespace ZanderGame
                 case "MOVE": return pad ? "LEFT STICK" : "WASD";
                 case "LOOK": return pad ? "RIGHT STICK" : "MOUSE";
                 case "CAMERA": return pad ? "RB" : "MOUSE";
-                case "RESTART": return pad ? "the PAUSE menu" : "R";
+                case "RESTART": return pad ? "the PAUSE menu" : "P";
                 case "START": return pad ? "A" : "SPACE";
                 default: return action;
             }

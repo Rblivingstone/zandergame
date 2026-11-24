@@ -54,7 +54,7 @@ controller rumbles on dunks, stomps and shrine clears.
 | Hint | LB | H |
 | Super Shots (every shot is perfect) | View (two squares) | Tab |
 | Pause menu (restart room, quit) | Menu (three lines) | Esc |
-| Restart room | Pause menu | R |
+| Restart room | Pause menu | P |
 
 While Zander runs, the camera slowly swings in behind him unless you're using the right stick.
 

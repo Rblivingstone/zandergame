@@ -134,7 +134,7 @@ namespace ZanderGame
                   "<b>SHOOT</b>  hold Left Mouse (or F) - let go in the <color=#6CFF8A>GREEN</color> zone!\n" +
                   "<b>DUNK</b>  C near a hoop (hold C to hang on the rim)\n" +
                   "<b>DROP / PLACE BALL</b>  Q        <b>USE / TURN BOARD</b>  E\n" +
-                  "<b>HINT</b>  H        <b>SUPER SHOTS</b>  Tab        <b>RESTART ROOM</b>  R        <b>PAUSE</b>  Esc";
+                  "<b>HINT</b>  H        <b>SUPER SHOTS</b>  Tab        <b>RESTART ROOM</b>  P        <b>PAUSE</b>  Esc";
             Text(new Rect(bx + 30, by + 20, bw - 60, 270), controls, _small, Color.white);
             float pulse = 0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 4f);
             Text(new Rect(0, by + 330, W, 60), Controls.UsingGamepad ? "Press A to start!" : "Click or press SPACE to start!", _med, new Color(1, 1, 1, pulse));
