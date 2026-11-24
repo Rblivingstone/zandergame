@@ -14,7 +14,7 @@ that same surface, so nothing pokes through; the face is projected onto the
 head. In Unity the ZanderGame/Toon shader adds cel shading and ink outlines.
 
 Animations (one Blender action each, exported as FBX takes):
-    Idle, Run, DribbleRun, Dribble, Jump, Shoot, Dunk, Celebrate, Hit, RimHang
+    Idle, Run, DribbleRun, Dribble, Jump, Shoot, Dunk, Celebrate, Hit, RimHang, Steal
 
 Usage (Blender 3.6+ / 4.x / 5.x):
     blender -b -P blender/zander_character.py -- --out <dir>
@@ -576,6 +576,26 @@ def anim_rimhang(rig):
     return a.finish()
 
 
+def anim_steal(rig):
+    """A quick left-handed swipe at the ball (Zander is a lefty): crouch, lunge, recover."""
+    a = zg.ActionBuilder(rig, "Steal", 20, loop=False)
+    a.pose(1, rot=arms_rest())
+    wind = {"spine": (10, 0, -15), "head": (-6, 0, -8),
+            "upper_arm.L": (-30, 0, 55), "forearm.L": (-50, 0, 0),
+            "upper_arm.R": (20, 0, 20),
+            "thigh.L": (-25, 0, 0), "thigh.R": (-25, 0, 0), "shin.L": (45, 0, 0), "shin.R": (45, 0, 0)}
+    a.pose(5, rot=wind, loc={"hips": (0, 0.02, -0.06)})
+    swipe = {"spine": (32, 0, 18), "head": (-28, 0, 10),
+             "upper_arm.L": (-85, 0, -15), "forearm.L": (-5, 0, 0), "hand.L": (-25, 0, 0),
+             "upper_arm.R": (35, 0, 25), "forearm.R": (-30, 0, 0),
+             "thigh.L": (-55, 0, 0), "shin.L": (55, 0, 0), "foot.L": (-15, 0, 0),
+             "thigh.R": (25, 0, 0), "shin.R": (30, 0, 0)}
+    a.pose(9, rot=swipe, loc={"hips": (0, -0.05, -0.08)})
+    a.pose(13, rot=swipe, loc={"hips": (0, -0.05, -0.08)})
+    a.pose(20, rot=arms_rest(), loc={"hips": (0, 0, 0)})
+    return a.finish()
+
+
 def anim_celebrate(rig):
     a = zg.ActionBuilder(rig, "Celebrate", 31, loop=True)
     for i in range(0, 31, 3):
@@ -613,7 +633,7 @@ def main():
     actions = [
         anim_idle(rig), anim_run(rig), anim_run(rig, "DribbleRun", with_ball=True),
         anim_dribble(rig), anim_jump(rig), anim_shoot(rig), anim_dunk(rig),
-        anim_celebrate(rig), anim_hit(rig), anim_rimhang(rig),
+        anim_celebrate(rig), anim_hit(rig), anim_rimhang(rig), anim_steal(rig),
     ]
     zg.push_actions_to_nla(rig, actions)
     rig.animation_data.action = actions[0]

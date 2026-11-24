@@ -12,7 +12,7 @@ namespace ZanderGame
     ///   Move                WASD / arrows             Left stick (or D-pad)
     ///   Look                Mouse                     Right stick
     ///   Jump                Space                     A
-    ///   Sprint              Left Shift                LT (hold) or L3
+    ///   Dash (stamina)      Left Shift                LT (hold) or L3
     ///   Shoot (hold)        Left mouse / F            RT (hold) - let go in the GREEN zone!
     ///   Dunk (hold = hang)  C                         X   (near a hoop, holding the ball)
     ///   Drop / place ball   Q / right mouse           B

@@ -48,7 +48,7 @@ namespace ZanderGame
             }
             _clips?.PlayOnce(name);
             _oneShot = name;
-            _oneShotUntil = Time.time + (name == "Celebrate" ? 2.0f : 0.6f);
+            _oneShotUntil = Time.time + (name == "Celebrate" ? 2.0f : name == "Steal" ? 0.5f : 0.6f);
         }
 
         int _facingChecks;

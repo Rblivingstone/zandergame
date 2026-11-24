@@ -46,17 +46,22 @@ controller rumbles on dunks, stomps and shrine clears.
 | Look | Right stick | Mouse |
 | Camera behind Zander | RB (or R3) | – |
 | Jump | A | Space |
-| Sprint | Hold LT (or L3) | Left Shift |
+| **Dash** (stamina wheel) | Hold LT (or L3) | Left Shift |
 | **Shoot** | Hold **RT**, release in the **green** zone | Hold left mouse (or F) |
 | **Dunk** | **X** near a hoop with the ball: Zander leaps to the rim. **Hold X** to hang on the rim | **C** (hold to hang) |
 | Drop / place ball on a plate | B | Q / right mouse |
-| Use (turn boards, take a ball off a plate) | Y | E |
+| Use (turn boards, take a ball off a plate, steal from King Swat) | Y | E |
 | Hint | LB | H |
 | Super Shots (every shot is perfect) | View (two squares) | Tab |
 | Pause menu (restart room, quit) | Menu (three lines) | Esc |
 | Restart room | Pause menu | R |
 
 While Zander runs, the camera slowly swings in behind him unless you're using the right stick.
+
+**Dash & stamina:** dashing drains the green stamina wheel next to Zander (about 3.5 s of
+dashing). It starts refilling the moment you let go of Dash. If it runs out completely
+Zander is winded: the wheel turns red, he can't dash and moves a little slower until it
+has slowly refilled all the way.
 
 ## One-click Windows build
 

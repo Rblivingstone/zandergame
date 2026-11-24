@@ -188,6 +188,10 @@ namespace ZanderGame
         {
             if (!CanStealFromBoss) return false;
             _stealCooldown = Time.time + 1.2f;
+            var boss = BossController.Instance;
+            _pc.Anim?.Trigger("Steal");
+            _pc.Lunge(boss.transform.position - transform.position, 5f, 0.18f);
+            GameAudio.Play("throw", 0.7f, 1.3f);
             float chance = SuperShots ? 0.75f : 0.55f;
             if (UnityEngine.Random.value < chance)
             {

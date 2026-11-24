@@ -14,7 +14,18 @@ namespace ZanderGame
         public const float Height = 1.45f;
 
         public float WalkSpeed = 5.2f;
-        public float SprintSpeed = 8.2f;
+        public float DashSpeed = 9.5f;
+
+        // ---- dash + stamina wheel ----
+        public const float DashDrainSeconds = 3.5f;        // full wheel of dashing
+        public const float RechargeSeconds = 2.0f;         // empty -> full after letting go
+        public const float ExhaustedRechargeSeconds = 4.5f;// ran out completely: slower
+        public float Stamina { get; private set; } = 1f;   // 0..1
+        public bool Exhausted { get; private set; }        // hit zero: no dashing until full again
+        public bool Dashing { get; private set; }
+        public float StaminaShownUntil { get; private set; }
+        float _lungeUntil;
+        Vector3 _lungeVel;
         public float JumpHeight = 1.5f;
         public float KillY = -4f;
 
@@ -130,7 +141,8 @@ namespace ZanderGame
             float camYaw = Cam != null ? Cam.Yaw : 0f;
             Vector3 wish = Quaternion.Euler(0, camYaw, 0) * new Vector3(mv.x, 0, mv.y);
             bool charging = Balls != null && Balls.Charging;
-            float speed = Controls.Sprint && !charging ? SprintSpeed : WalkSpeed;
+            UpdateStamina(frozen, mv, charging, dt);
+            float speed = Dashing ? DashSpeed : Exhausted ? WalkSpeed * 0.8f : WalkSpeed;
             if (charging) speed *= 0.35f;
 
             if (!frozen && !IsStunned && Controls.JumpDown && _coyote > 0f && !IsHanging)
@@ -158,7 +170,8 @@ namespace ZanderGame
                 _vVel -= Gravity * dt;
                 _external = Vector3.MoveTowards(_external, Vector3.zero, 12f * dt);
                 _ground = null;
-                var flags = CC.Move((_hVel + _external + Vector3.up * _vVel) * dt);
+                var lunge = Time.time < _lungeUntil ? _lungeVel : Vector3.zero;
+                var flags = CC.Move((_hVel + _external + lunge + Vector3.up * _vVel) * dt);
                 if ((flags & CollisionFlags.Above) != 0 && _vVel > 0) _vVel = 0;
             }
             HorizontalSpeed = new Vector3(_hVel.x, 0, _hVel.z).magnitude;
@@ -178,6 +191,53 @@ namespace ZanderGame
                 Visual.rotation = Quaternion.RotateTowards(Visual.rotation, _faceTarget, 900f * dt);
 
             if (transform.position.y < KillY && gm != null) gm.RespawnPlayer(true);
+        }
+
+        void UpdateStamina(bool frozen, Vector2 mv, bool charging, float dt)
+        {
+            bool held = !frozen && Controls.Sprint;
+            bool moving = mv.sqrMagnitude > 0.04f;
+            bool wasDashing = Dashing;
+            Dashing = held && moving && !Exhausted && !charging && !IsStunned;
+            if (Dashing)
+            {
+                Stamina -= dt / DashDrainSeconds;
+                if (Stamina <= 0f)
+                {
+                    Stamina = 0f;
+                    Exhausted = true;
+                    Dashing = false;
+                    GameAudio.Play("unclick", 0.8f, 0.7f);
+                    Hud.Toast("Out of breath!", new Color(1f, 0.55f, 0.4f), 1.0f);
+                }
+                if (!wasDashing)
+                {
+                    Effects.Burst(transform.position + Vector3.up * 0.1f, new Color(0.9f, 0.85f, 0.75f), 12, 2.5f, 0.12f, 0.4f, false);
+                    GameAudio.Play("throw", 0.5f, 0.7f);
+                }
+            }
+            else if (!held || Exhausted)
+            {
+                // recharges as soon as the button is let go (slower if it ran out completely)
+                Stamina += dt / (Exhausted ? ExhaustedRechargeSeconds : RechargeSeconds);
+                if (Stamina >= 1f)
+                {
+                    Stamina = 1f;
+                    if (Exhausted) GameAudio.Play("pickup", 0.4f, 1.2f);
+                    Exhausted = false;
+                }
+            }
+            if (Stamina < 1f || Dashing) StaminaShownUntil = Time.time + 1.0f;
+        }
+
+        /// <summary>A short burst forward (steal swipe) without stunning.</summary>
+        public void Lunge(Vector3 dir, float speed, float seconds)
+        {
+            dir.y = 0;
+            if (dir.sqrMagnitude < 0.001f) return;
+            _lungeVel = dir.normalized * speed;
+            _lungeUntil = Time.time + seconds;
+            _faceTarget = Quaternion.LookRotation(dir);
         }
 
         void UpdateInteract(bool frozen)

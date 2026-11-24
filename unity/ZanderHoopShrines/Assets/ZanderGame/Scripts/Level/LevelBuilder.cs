@@ -326,7 +326,7 @@ namespace ZanderGame
             room.Hoops.Add(hoop);
             room.Dispensers.Add(BallDispenser.Create("PracticeRack", a, new Vector3(-2, 0, 6.5f), 2));
             Sign(a, "ZANDER'S\nHOOP SHRINES", new Vector3(0, 5.6f, z1 - 0.12f), 0.9f, Gold, 0);
-            Sign(a, "CONTROLLER:  MOVE: LEFT STICK   LOOK: RIGHT STICK   JUMP: A\nSHOOT: HOLD RT   DUNK: X   SPRINT: LT   DROP: B   USE: Y\nKEYBOARD:  WASD  SPACE  SHIFT  LEFT MOUSE  C=DUNK  Q  E  H",
+            Sign(a, "CONTROLLER:  MOVE: LEFT STICK   LOOK: RIGHT STICK   JUMP: A\nSHOOT: HOLD RT   DUNK: X   DASH: LT   DROP: B   USE: Y\nKEYBOARD:  WASD  SPACE  SHIFT  LEFT MOUSE  C=DUNK  Q  E  H",
                 new Vector3(x1 - 0.12f, 3.2f, 7), 0.32f, Color.white, 90);
             Sign(a, "Beat 3 shrines...\nthen beat KING SWAT!", new Vector3(x0 + 0.12f, 3.4f, 4), 0.4f, Gold, -90);
             Corridor(a, 14, 18, 0);
@@ -630,7 +630,7 @@ namespace ZanderGame
             room.Hints = new[]
             {
                 "There's only ONE ball. After a basket, the other player gets it under that hoop.",
-                "King Swat plays tight defence: SPRINT ({SPRINT}) past him to get an open shot!",
+                "King Swat plays tight defence: DASH ({SPRINT}) past him to get an open shot - watch your stamina wheel!",
                 "If he raises his arms, he may SWAT your shot - shoot from further away or dunk ({DUNK})!",
                 "When King Swat winds up for a steal, run! When HE dribbles, get close and press {USE} to steal it back.",
                 "Missed shots are loose balls - race him to the rebound!",

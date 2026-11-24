@@ -101,6 +101,7 @@ namespace ZanderGame
                     return;
             }
 
+            DrawStamina(gm);
             DrawRoomPanel(gm);
             DrawTopRight(gm);
             DrawAim(gm);
@@ -124,12 +125,12 @@ namespace ZanderGame
             float bw = 900, bx = (W - bw) / 2, by = H * 0.5f;
             Fill(new Rect(bx, by, bw, 300), Panel);
             string controls = Controls.UsingGamepad
-                ? "<b>MOVE</b>  Left stick        <b>LOOK</b>  Right stick        <b>JUMP</b>  A        <b>SPRINT</b>  hold LT\n" +
+                ? "<b>MOVE</b>  Left stick        <b>LOOK</b>  Right stick        <b>JUMP</b>  A        <b>DASH</b>  hold LT (stamina)\n" +
                   "<b>SHOOT</b>  hold RT - let go in the <color=#6CFF8A>GREEN</color> zone!\n" +
                   "<b>DUNK</b>  X near a hoop (hold X to hang on the rim)        <b>CAMERA BEHIND</b>  RB\n" +
                   "<b>DROP / PLACE BALL</b>  B        <b>USE / TURN BOARD</b>  Y\n" +
                   "<b>HINT</b>  LB        <b>SUPER SHOTS</b>  View        <b>PAUSE</b>  Menu"
-                : "<b>MOVE</b>  WASD / arrows        <b>JUMP</b>  Space        <b>SPRINT</b>  Shift\n" +
+                : "<b>MOVE</b>  WASD / arrows        <b>JUMP</b>  Space        <b>DASH</b>  hold Shift (stamina)\n" +
                   "<b>SHOOT</b>  hold Left Mouse (or F) - let go in the <color=#6CFF8A>GREEN</color> zone!\n" +
                   "<b>DUNK</b>  C near a hoop (hold C to hang on the rim)\n" +
                   "<b>DROP / PLACE BALL</b>  Q        <b>USE / TURN BOARD</b>  E\n" +
@@ -140,6 +141,46 @@ namespace ZanderGame
             var st = new GUIStyle(_center);
             st.alignment = TextAnchor.MiddleCenter;
             Text(new Rect(0, H - 60, W, 40), "Beat 3 shrines, then win the shooting contest against KING SWAT!", st, GoldC);
+        }
+
+        // ------------------------------------------------------- stamina wheel --
+        void DrawStamina(GameManager gm)
+        {
+            var p = gm.Player;
+            var cam = Camera.main;
+            if (p == null || cam == null || Time.time > p.StaminaShownUntil) return;
+            var world = p.transform.position + Vector3.up * 1.15f + cam.transform.right * 0.75f;
+            var sp = cam.WorldToScreenPoint(world);
+            if (sp.z < 0) return;
+            var c = new Vector2(sp.x / _scale, (Screen.height - sp.y) / _scale);
+            float alpha = Mathf.Clamp01((p.StaminaShownUntil - Time.time) * 3f);
+            Color fillC;
+            if (p.Exhausted)
+                fillC = Color.Lerp(new Color(1f, 0.3f, 0.25f), new Color(1f, 0.6f, 0.3f), 0.5f + 0.5f * Mathf.Sin(Time.time * 10f));
+            else if (p.Stamina < 0.3f) fillC = new Color(1f, 0.85f, 0.25f);
+            else fillC = new Color(0.42f, 1f, 0.55f);
+            fillC.a = alpha;
+            DrawRing(c, 26f, 8f, 1f, new Color(0.05f, 0.07f, 0.12f, 0.55f * alpha));
+            DrawRing(c, 26f, 8f, p.Stamina, fillC);
+        }
+
+        /// <summary>Clockwise ring from 12 o'clock, made of small rotated quads.</summary>
+        void DrawRing(Vector2 center, float radius, float thickness, float fraction, Color color)
+        {
+            const int segments = 48;
+            int n = Mathf.CeilToInt(segments * Mathf.Clamp01(fraction));
+            float segLen = 2f * Mathf.PI * radius / segments + 1.2f;
+            var old = GUI.matrix;
+            var oldC = GUI.color;
+            GUI.color = color;
+            for (int i = 0; i < n; i++)
+            {
+                GUI.matrix = old;
+                GUIUtility.RotateAroundPivot(360f * (i + 0.5f) / segments, center);
+                GUI.DrawTexture(new Rect(center.x - segLen / 2, center.y - radius - thickness / 2, segLen, thickness), _white);
+            }
+            GUI.matrix = old;
+            GUI.color = oldC;
         }
 
         // ---------------------------------------------------------- room panel --
