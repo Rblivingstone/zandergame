@@ -144,13 +144,47 @@ namespace ZanderGame
         }
 
         // ------------------------------------------------------- stamina wheel --
+        // The wheel is drawn from pre-made ring images (one per fill step), so it is a
+        // single picture on screen - no rotated pieces.
+        const int RingSteps = 64;
+        const int RingTexSize = 160;
+        readonly Texture2D[] _ringTex = new Texture2D[RingSteps + 1];
+
+        Texture2D RingTexture(float fraction)
+        {
+            int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Clamp01(fraction) * RingSteps), 0, RingSteps);
+            if (_ringTex[step] != null) return _ringTex[step];
+            int n = RingTexSize;
+            float outer = n * 0.5f - 2f, inner = outer * 0.68f;
+            float fill = step / (float)RingSteps;
+            var px = new Color32[n * n];
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float dx = x + 0.5f - n * 0.5f, dy = y + 0.5f - n * 0.5f;   // y up (row 0 = bottom)
+                    float r = Mathf.Sqrt(dx * dx + dy * dy);
+                    float radial = Mathf.Clamp01(Mathf.Min(r - inner, outer - r) + 0.5f);
+                    // clockwise from 12 o'clock
+                    float ang = Mathf.Atan2(dx, dy) / (2f * Mathf.PI);
+                    if (ang < 0) ang += 1f;
+                    float angular = fill >= 1f ? 1f : Mathf.Clamp01((fill - ang) * 2f * Mathf.PI * r + 0.5f);
+                    byte a = (byte)(255f * radial * angular);
+                    px[y * n + x] = new Color32(255, 255, 255, a);
+                }
+            var t = new Texture2D(n, n, TextureFormat.RGBA32, false) { name = "StaminaRing" + step, wrapMode = TextureWrapMode.Clamp };
+            t.SetPixels32(px);
+            t.Apply();
+            _ringTex[step] = t;
+            return t;
+        }
+
         void DrawStamina(GameManager gm)
         {
             var p = gm.Player;
             var cam = Camera.main;
             if (p == null || cam == null || Time.time > p.StaminaShownUntil) return;
-            var world = p.transform.position + Vector3.up * 1.15f + cam.transform.right * 0.75f;
-            var sp = cam.WorldToScreenPoint(world);
+            // centred above Zander's head (hair top is ~1.6 m)
+            var sp = cam.WorldToScreenPoint(p.transform.position + Vector3.up * 2.25f);
             if (sp.z < 0) return;
             var c = new Vector2(sp.x / _scale, (Screen.height - sp.y) / _scale);
             float alpha = Mathf.Clamp01((p.StaminaShownUntil - Time.time) * 3f);
@@ -160,27 +194,14 @@ namespace ZanderGame
             else if (p.Stamina < 0.3f) fillC = new Color(1f, 0.85f, 0.25f);
             else fillC = new Color(0.42f, 1f, 0.55f);
             fillC.a = alpha;
-            DrawRing(c, 26f, 8f, 1f, new Color(0.05f, 0.07f, 0.12f, 0.55f * alpha));
-            DrawRing(c, 26f, 8f, p.Stamina, fillC);
-        }
-
-        /// <summary>Clockwise ring from 12 o'clock, made of small rotated quads.</summary>
-        void DrawRing(Vector2 center, float radius, float thickness, float fraction, Color color)
-        {
-            const int segments = 48;
-            int n = Mathf.CeilToInt(segments * Mathf.Clamp01(fraction));
-            float segLen = 2f * Mathf.PI * radius / segments + 1.2f;
-            var old = GUI.matrix;
-            var oldC = GUI.color;
-            GUI.color = color;
-            for (int i = 0; i < n; i++)
-            {
-                GUI.matrix = old;
-                GUIUtility.RotateAroundPivot(360f * (i + 0.5f) / segments, center);
-                GUI.DrawTexture(new Rect(center.x - segLen / 2, center.y - radius - thickness / 2, segLen, thickness), _white);
-            }
-            GUI.matrix = old;
-            GUI.color = oldC;
+            const float size = 96f;
+            var rect = new Rect(c.x - size / 2, c.y - size / 2, size, size);
+            var old = GUI.color;
+            GUI.color = new Color(0.05f, 0.07f, 0.12f, 0.6f * alpha);
+            GUI.DrawTexture(rect, RingTexture(1f));                       // dark track
+            GUI.color = fillC;
+            GUI.DrawTexture(rect, RingTexture(p.Stamina));                // stamina
+            GUI.color = old;
         }
 
         // ---------------------------------------------------------- room panel --
