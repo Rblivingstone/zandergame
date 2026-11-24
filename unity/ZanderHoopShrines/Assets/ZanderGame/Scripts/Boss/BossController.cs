@@ -9,7 +9,7 @@ namespace ZanderGame
     ///   phase 2: also STOMPS, sending out shockwave rings Zander must jump over,
     ///   phase 3: also guards Zander's hoop and SWATS shots away (arms up = wait!).
     /// </summary>
-    public class BossController : MonoBehaviour
+    public class BossController : BallCarrier
     {
         public const float Height = 3.4f;
         public BossArena Arena;
@@ -58,6 +58,7 @@ namespace ZanderGame
 
         // ------------------------------------------------------------ control --
         void Awake() => Instance = this;
+        public override float StealChance => 0.55f;
 
         public void ResetToSpawn()
         {
@@ -65,7 +66,7 @@ namespace ZanderGame
             if (HeldBall != null)
             {
                 Destroy(HeldBall.gameObject);
-                HeldBall = null;
+                _held = null;
             }
             transform.position = Arena.BossSpawn;
             Blocking = false;
@@ -107,7 +108,7 @@ namespace ZanderGame
             if (HeldBall != null)
             {
                 HeldBall.Release(HeldBall.transform.position, Vector3.up * 2f, BallOwner.None);
-                HeldBall = null;
+                _held = null;
             }
             _clips?.PlayAndHold("Defeat");
             State = "defeated";
@@ -122,7 +123,8 @@ namespace ZanderGame
         // the ball, and in later rounds stomps shockwaves and guards Zander's hoop.
 
         public static BossController Instance { get; private set; }
-        public Basketball HeldBall { get; private set; }
+        public override Basketball HeldBall => _held;
+        Basketball _held;
         float _moveSpeed = 3.2f;
         float _nextSteal;
         float _dribbleT;
@@ -328,16 +330,16 @@ namespace ZanderGame
         void TakeBall(Basketball ball)
         {
             ball.Hold(this);
-            HeldBall = ball;
+            _held = ball;
             _dribbleT = 0f;
             GameAudio.PlayAt("pickup", transform.position, 0.8f, 0.7f);
         }
 
         /// <summary>Zander stole it! Hands the ball over.</summary>
-        public Basketball LoseBall()
+        public override Basketball LoseBall()
         {
             var b = HeldBall;
-            HeldBall = null;
+            _held = null;
             if (State == "shoot") State = "idle";
             PlayOnce("Hit", 0.8f);
             _nextSteal = Time.time + 2.5f;
@@ -382,7 +384,7 @@ namespace ZanderGame
                 yield return null;
             }
             var ball = HeldBall;
-            HeldBall = null;
+            _held = null;
             if (ball != null)
             {
                 float makeChance = phase == 1 ? 0.5f : phase == 2 ? 0.55f : 0.6f;
@@ -417,7 +419,7 @@ namespace ZanderGame
                 yield return null;
             }
             var ball = HeldBall;
-            HeldBall = null;
+            _held = null;
             var rim = hoop.RimCenter;
             if (Random.value < 0.85f)
                 ball.Release(rim + Vector3.up * 0.32f, Vector3.down * 5f, BallOwner.Boss);

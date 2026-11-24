@@ -173,29 +173,42 @@ namespace ZanderGame
         // ------------------------------------------------------------ stealing --
         float _stealCooldown;
 
-        /// <summary>King Swat is dribbling right next to Zander and Zander has no ball.</summary>
-        public bool CanStealFromBoss
+        /// <summary>Someone (King Swat or a sparring bot) is dribbling right next to Zander, who has no ball.</summary>
+        public BallCarrier StealTarget
         {
             get
             {
-                var boss = BossController.Instance;
-                return Ball == null && !Dunking && boss != null && boss.HeldBall != null && Time.time > _stealCooldown &&
-                       Flat(boss.transform.position - transform.position) < 2.6f;
+                if (Ball != null || Dunking || Time.time <= _stealCooldown) return null;
+                BallCarrier best = null;
+                float bestD = 2.6f;
+                foreach (var c in BallCarrier.All)
+                {
+                    if (c == null || c.HeldBall == null) continue;
+                    float d = Flat(c.transform.position - transform.position);
+                    if (d < bestD)
+                    {
+                        bestD = d;
+                        best = c;
+                    }
+                }
+                return best;
             }
         }
 
+        public bool CanStealFromBoss => StealTarget != null;
+
         public bool TrySteal()
         {
-            if (!CanStealFromBoss) return false;
+            var target = StealTarget;
+            if (target == null) return false;
             _stealCooldown = Time.time + 1.2f;
-            var boss = BossController.Instance;
             _pc.Anim?.Trigger("Steal");
-            _pc.Lunge(boss.transform.position - transform.position, 5f, 0.18f);
+            _pc.Lunge(target.transform.position - transform.position, 5f, 0.18f);
             GameAudio.Play("throw", 0.7f, 1.3f);
-            float chance = SuperShots ? 0.75f : 0.55f;
+            float chance = Mathf.Min(1f, target.StealChance + (SuperShots ? 0.2f : 0f));
             if (UnityEngine.Random.value < chance)
             {
-                var b = BossController.Instance.LoseBall();
+                var b = target.LoseBall();
                 if (b != null)
                 {
                     Grab(b);
@@ -324,7 +337,8 @@ namespace ZanderGame
                 if (h == null || h.RequiresRebound || !h.AcceptPlayerShots) continue;
                 if (Flat(h.RimCenter - p) < DunkReach + 1f && h.RimCenter.y - p.y > DunkMaxRise)
                 {
-                    Hud.Toast("Too high! Use a BOUNCE pad, then press {DUNK} in the air!", new Color(0.7f, 0.5f, 1f), 1.6f);
+                    Hud.Toast("Too high! Get up higher - jump onto a platform or use a BOUNCE pad - then press {DUNK}!",
+                        new Color(0.7f, 0.5f, 1f), 1.8f);
                     return;
                 }
             }
@@ -406,9 +420,11 @@ namespace ZanderGame
                 var hang = HangPoint(hoop, out var front);
                 hang += front * Mathf.Sin(hangT * 3f) * 0.03f;   // gentle swing
                 _pc.ScriptedPose(hang, -front);
+                hoop.AddHangTime(Time.deltaTime);
                 if (hangT > 0.4f) _pc.Anim?.SetDunkPhase(3);
                 yield return null;
             }
+            hoop.EndHang();
             HangPoint(hoop, out var fEnd);
             EndDunk();
             _pc.EndScripted(fEnd * 2.5f);

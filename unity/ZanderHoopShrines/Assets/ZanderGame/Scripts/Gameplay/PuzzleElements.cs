@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -45,6 +46,7 @@ namespace ZanderGame
         public event Action Activated;
         public bool Active { get; private set; }
         public Vector3 LastDelta { get; private set; }
+        public bool IsLatched => _latched;
         bool _latched;
 
         void Update()
@@ -79,6 +81,10 @@ namespace ZanderGame
     {
         public SignalMover Panel { get; private set; }
         public bool IsOpen => Panel != null && Panel.Active;
+        /// <summary>Open for good (latched) - this is what counts as "shrine solved".</summary>
+        public bool IsSolved => IsOpen && Panel.IsLatched;
+        /// <summary>Timed gates: once Zander walks through, the gate stays open.</summary>
+        public bool LatchWhenPassed;
         readonly List<(Signal sig, Material mat)> _indicators = new List<(Signal, Material)>();
 
         public static Gate Create(string name, Transform parent, Vector3 localPos, float yaw, List<Signal> inputs,
@@ -146,6 +152,15 @@ namespace ZanderGame
 
         void Update()
         {
+            if (LatchWhenPassed && IsOpen && !Panel.IsLatched && PlayerController.Instance != null)
+            {
+                var local = transform.InverseTransformPoint(PlayerController.Instance.transform.position);
+                if (local.z > 0.9f && Mathf.Abs(local.x) < 2.5f)
+                {
+                    Panel.ForceOpen();
+                    GameAudio.Play("chime", 0.6f);
+                }
+            }
             foreach (var (sig, mat) in _indicators)
             {
                 if (sig == null) continue;
@@ -683,6 +698,305 @@ namespace ZanderGame
                 _orbs[i].color = on ? c : c * (0.35f + 0.3f * pulse);
                 Mat.SetEmission(_orbs[i], on ? c * 2.5f : c * (0.15f + pulse));
             }
+        }
+    }
+
+    /// <summary>
+    /// A blue plate that, once stood on for HoldSeconds, turns ON for OnSeconds
+    /// (a countdown shows above it). Used to teach dashing and stamina.
+    /// </summary>
+    public class TimedSwitch : Signal
+    {
+        public PressurePlate Plate;
+        public float HoldSeconds;
+        public float OnSeconds = 3f;
+        float _held;
+        float _onUntil;
+        float _lastTick;
+        TextMesh _label;
+        Material _ring;
+
+        public override bool IsOn => Time.time < _onUntil;
+        public override Color SignalColor => new Color(0.3f, 0.75f, 1f);
+        public float TimeLeft => Mathf.Max(0f, _onUntil - Time.time);
+
+        public static TimedSwitch Create(string name, Transform parent, Vector3 localPos, float holdSeconds, float onSeconds)
+        {
+            var plate = PressurePlate.Create(name, parent, localPos, PlateKind.Feet);
+            var ts = plate.gameObject.AddComponent<TimedSwitch>();
+            ts.Plate = plate;
+            ts.HoldSeconds = holdSeconds;
+            ts.OnSeconds = onSeconds;
+            ts._label = Build.Label("", plate.transform, new Vector3(0, 2.2f, 0), 0.55f, Color.white, 0, true);
+            ts._ring = Mat.Glow(new Color(0.3f, 0.75f, 1f), new Color(0.3f, 0.75f, 1f), 1.5f);
+            FloorRing(plate.transform.parent, localPos + Vector3.up * 0.02f, 1.25f, ts._ring, 0f, 360f, 32);
+            return ts;
+        }
+
+        void Update()
+        {
+            bool standing = Plate != null && Plate.Pressed;
+            if (!IsOn)
+            {
+                if (standing)
+                {
+                    _held += Time.deltaTime;
+                    if (_held >= HoldSeconds)
+                    {
+                        _held = 0f;
+                        _onUntil = Time.time + OnSeconds;
+                        _lastTick = Time.time;
+                        GameAudio.Play("whistle", 0.6f);
+                        Hud.Toast("GO GO GO!", new Color(0.4f, 0.85f, 1f), 0.8f);
+                    }
+                }
+                else _held = 0f;
+            }
+            else if (Time.time - _lastTick >= 1f)
+            {
+                _lastTick = Time.time;
+                GameAudio.Play("tick", 0.7f, 1.2f);
+            }
+            if (_label != null)
+            {
+                if (IsOn) _label.text = TimeLeft.ToString("0.0");
+                else if (_held > 0f) _label.text = "HOLD " + Mathf.Max(0f, HoldSeconds - _held).ToString("0.0");
+                else _label.text = HoldSeconds > 0f ? "STAND " + HoldSeconds.ToString("0.#") + "s" : "STEP";
+                _label.color = IsOn ? new Color(0.4f, 1f, 0.5f) : Color.white;
+            }
+            if (_ring != null)
+                Mat.SetEmission(_ring, IsOn ? new Color(0.4f, 1f, 0.5f) * 2f : new Color(0.3f, 0.75f, 1f) * (standing ? 2f : 0.8f));
+        }
+
+        /// <summary>A glowing ring (or arc) painted on the floor out of short segments.</summary>
+        public static void FloorRing(Transform parent, Vector3 center, float radius, Material mat, float fromDeg, float toDeg,
+            int segments)
+        {
+            float span = (toDeg - fromDeg) * Mathf.Deg2Rad;
+            float segLen = Mathf.Abs(span) * radius / segments + 0.05f;
+            for (int i = 0; i < segments; i++)
+            {
+                float a = fromDeg * Mathf.Deg2Rad + span * (i + 0.5f) / segments;
+                var p = center + new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a)) * radius;
+                Build.Box("Ring", parent, p, new Vector3(0.12f, 0.02f, segLen), mat, false,
+                    Quaternion.Euler(0, a * Mathf.Rad2Deg + 90f, 0));
+            }
+        }
+    }
+
+    /// <summary>Anyone Zander can steal the ball from (King Swat, sparring bots).</summary>
+    public abstract class BallCarrier : MonoBehaviour
+    {
+        public static readonly List<BallCarrier> All = new List<BallCarrier>();
+        public abstract Basketball HeldBall { get; }
+        public abstract Basketball LoseBall();
+        /// <summary>Chance that one of Zander's steal attempts works.</summary>
+        public virtual float StealChance => 0.55f;
+        protected virtual void OnEnable() => All.Add(this);
+        protected virtual void OnDisable() => All.Remove(this);
+    }
+
+    /// <summary>
+    /// A friendly practice robot for the Steal shrine. It dribbles its own ball around
+    /// a patrol loop. Options: flee from Zander (catch it with a dash), and chase Zander
+    /// to steal the ball back (dodge it).
+    /// </summary>
+    public class SparringBot : BallCarrier
+    {
+        public Vector3 Center;
+        public float Radius = 3f;
+        public float PatrolSpeed = 2f;
+        public float FleeSpeed;        // > 0: runs away when Zander is close
+        public float ChaseSpeed;       // > 0: chases Zander to steal the ball back
+        public float LungeChance = 0.35f;
+        public float Chance = 0.9f;
+        public Hoop Target;            // once this hoop is lit, the bot stops playing
+        public float MinX, MaxX, MinZ, MaxZ;
+
+        Basketball _held, _myBall;
+        float _ang, _sadUntil, _nextLunge, _dribbleT, _t;
+        bool _lunging;
+        Transform _body, _armL, _armR;
+        Vector3 _face = Vector3.forward;
+
+        public override Basketball HeldBall => _held;
+        public override float StealChance => Chance;
+        bool Done => Target != null && Target.Lit;
+
+        public static SparringBot Create(string name, Transform parent, Vector3 center, float radius, Color color)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = center + new Vector3(radius, 0, 0);
+            var bot = go.AddComponent<SparringBot>();
+            bot.Center = parent.TransformPoint(center);
+            bot.Radius = radius;
+            bot.BuildVisual(color, name.ToUpperInvariant());
+            var col = go.AddComponent<CapsuleCollider>();
+            col.radius = 0.4f;
+            col.height = 1.6f;
+            col.center = new Vector3(0, 0.8f, 0);
+            go.AddComponent<Rigidbody>().isKinematic = true;
+            return bot;
+        }
+
+        void BuildVisual(Color color, string label)
+        {
+            var root = new GameObject("Visual").transform;
+            root.SetParent(transform, false);
+            _body = root;
+            var main = Mat.Color(color, 0.4f);
+            var white = Mat.Color("#F4F4F4", 0.4f);
+            var dark = Mat.Color("#1E1E24", 0.3f);
+            var eye = Mat.Glow(Mat.Hex("#4AD7FF"), Mat.Hex("#29C4FF"), 2.5f);
+            Build.Prim(PrimitiveType.Sphere, "Base", root, new Vector3(0, 0.25f, 0), new Vector3(0.7f, 0.35f, 0.7f), dark, false);
+            Build.Prim(PrimitiveType.Capsule, "Body", root, new Vector3(0, 0.8f, 0), new Vector3(0.75f, 0.45f, 0.65f), main, false);
+            Build.Prim(PrimitiveType.Cylinder, "Belt", root, new Vector3(0, 0.62f, 0), new Vector3(0.78f, 0.05f, 0.68f), white, false);
+            Build.Prim(PrimitiveType.Sphere, "Head", root, new Vector3(0, 1.38f, 0), new Vector3(0.62f, 0.55f, 0.6f), white, false);
+            Build.Prim(PrimitiveType.Cube, "Visor", root, new Vector3(0, 1.4f, 0.24f), new Vector3(0.44f, 0.16f, 0.12f), dark, false);
+            Build.Prim(PrimitiveType.Cube, "Eyes", root, new Vector3(0, 1.4f, 0.3f), new Vector3(0.34f, 0.06f, 0.02f), eye, false);
+            Build.Prim(PrimitiveType.Cylinder, "Antenna", root, new Vector3(0, 1.75f, 0), new Vector3(0.03f, 0.12f, 0.03f), dark, false);
+            Build.Prim(PrimitiveType.Sphere, "Tip", root, new Vector3(0, 1.9f, 0), Vector3.one * 0.1f, eye, false);
+            _armL = new GameObject("ArmL").transform;
+            _armL.SetParent(root, false);
+            _armL.localPosition = new Vector3(0.42f, 1.0f, 0);
+            _armR = new GameObject("ArmR").transform;
+            _armR.SetParent(root, false);
+            _armR.localPosition = new Vector3(-0.42f, 1.0f, 0);
+            foreach (var arm in new[] { _armL, _armR })
+            {
+                Build.Prim(PrimitiveType.Capsule, "Arm", arm, new Vector3(0, -0.22f, 0), new Vector3(0.16f, 0.22f, 0.16f), main, false);
+                Build.Prim(PrimitiveType.Sphere, "Hand", arm, new Vector3(0, -0.48f, 0), Vector3.one * 0.18f, white, false);
+            }
+            Build.Label(label, transform, new Vector3(0, 2.3f, 0), 0.3f, color, 0, true);
+        }
+
+        Vector3 PlayerPos => PlayerController.Instance != null ? PlayerController.Instance.transform.position : transform.position;
+        bool PlayerHasBall => PlayerController.Instance != null && PlayerController.Instance.Balls != null &&
+                              PlayerController.Instance.Balls.HasBall;
+
+        public override Basketball LoseBall()
+        {
+            var b = _held;
+            _held = null;
+            _sadUntil = Time.time + 1.2f;
+            _nextLunge = Time.time + 2.0f;
+            GameAudio.PlayAt("buzz", transform.position, 0.4f, 1.6f);
+            return b;
+        }
+
+        void MoveToward(Vector3 target, float speed)
+        {
+            var d = target - transform.position;
+            d.y = 0;
+            if (d.magnitude < 0.05f) return;
+            var step = d.normalized * Mathf.Min(d.magnitude, speed * Time.deltaTime);
+            var p = transform.position + step;
+            p.x = Mathf.Clamp(p.x, MinX, MaxX);
+            p.z = Mathf.Clamp(p.z, MinZ, MaxZ);
+            transform.position = p;
+            _face = d.normalized;
+        }
+
+        void Update()
+        {
+            float dt = Time.deltaTime;
+            _t += dt;
+            var gm = GameManager.Instance;
+            if (gm != null && !gm.IsPlaying) return;
+            if (_myBall == null)
+            {
+                _myBall = Basketball.Create(transform.position + Vector3.up);
+                _held = _myBall;
+                _myBall.Hold(this);
+            }
+            float moved = 0f;
+            var before = transform.position;
+            if (_lunging) { }
+            else if (_held != null)
+            {
+                float pd = Vector3.Distance(new Vector3(PlayerPos.x, 0, PlayerPos.z), new Vector3(transform.position.x, 0, transform.position.z));
+                if (FleeSpeed > 0f && pd < 6f && !Done)
+                {
+                    var away = transform.position - PlayerPos;
+                    away.y = 0;
+                    // run away, sliding along the walls instead of getting stuck in a corner
+                    var target = transform.position + away.normalized * 3f + Vector3.Cross(Vector3.up, away.normalized) * 1.5f;
+                    MoveToward(target, FleeSpeed);
+                }
+                else
+                {
+                    _ang += PatrolSpeed / Mathf.Max(0.5f, Radius) * dt;
+                    MoveToward(Center + new Vector3(Mathf.Cos(_ang), 0, Mathf.Sin(_ang)) * Radius, PatrolSpeed * 1.5f);
+                }
+            }
+            else if (Time.time < _sadUntil || Done) { _face = PlayerPos - transform.position; }
+            else if (ChaseSpeed > 0f && PlayerHasBall)
+            {
+                MoveToward(PlayerPos, ChaseSpeed);
+                if (Time.time > _nextLunge && Vector3.Distance(PlayerPos, transform.position) < 2.2f)
+                    StartCoroutine(Lunge());
+            }
+            else if (_myBall != null && !_myBall.IsHeld)
+            {
+                // go get our ball back
+                var bp = _myBall.transform.position;
+                MoveToward(bp, Mathf.Max(PatrolSpeed, 3f));
+                var flat = new Vector2(bp.x - transform.position.x, bp.z - transform.position.z).magnitude;
+                if (flat < 0.8f && bp.y < 1.6f)
+                {
+                    _held = _myBall;
+                    _myBall.Hold(this);
+                }
+            }
+            moved = (transform.position - before).magnitude / Mathf.Max(dt, 0.0001f);
+
+            // waddle animation
+            _face.y = 0;
+            if (_face.sqrMagnitude > 0.001f)
+                _body.rotation = Quaternion.RotateTowards(_body.rotation, Quaternion.LookRotation(_face), 540f * dt);
+            float sw = Mathf.Sin(_t * 10f) * Mathf.Clamp01(moved / 3f);
+            _body.localPosition = new Vector3(0, Mathf.Abs(sw) * 0.06f, 0);
+            _armL.localRotation = Quaternion.Euler(-40f * sw, 0, 0);
+            _armR.localRotation = _held != null
+                ? Quaternion.Euler(-35f - 25f * Mathf.Abs(Mathf.Cos(_dribbleT * Mathf.PI * 2f)), 0, 0)
+                : Quaternion.Euler(40f * sw, 0, 0);
+            if (Done && _held == null)
+                _armL.localRotation = _armR.localRotation = Quaternion.Euler(-160f + 20f * Mathf.Sin(_t * 8f), 0, 0); // cheering
+        }
+
+        IEnumerator Lunge()
+        {
+            _lunging = true;
+            Hud.Toast("The bot is going for the ball - DASH away!", new Color(1f, 0.7f, 0.4f), 0.9f);
+            _armR.localRotation = Quaternion.Euler(-80f, 0, 0);
+            yield return new WaitForSeconds(0.4f);
+            var player = PlayerController.Instance;
+            if (PlayerHasBall && Vector3.Distance(PlayerPos, transform.position) < 2.5f && UnityEngine.Random.value < LungeChance)
+            {
+                var b = player.Balls.Ball;
+                player.Balls.ForgetBall();
+                _held = b;
+                _myBall = b;
+                b.Hold(this);
+                GameAudio.Play("dunk", 0.6f, 1.6f);
+                Hud.Toast("The bot stole it back! Steal it again ({USE})", new Color(1f, 0.55f, 0.5f), 1.4f);
+            }
+            else if (PlayerHasBall) Hud.Toast("Nice dodge!", new Color(0.5f, 1f, 0.6f), 0.8f);
+            _nextLunge = Time.time + 3f;
+            _lunging = false;
+        }
+
+        void LateUpdate()
+        {
+            if (_held == null) return;
+            _dribbleT += Time.deltaTime;
+            var fwd = _body.forward;
+            var right = Vector3.Cross(Vector3.up, fwd);
+            var pos = transform.position + right * 0.45f + fwd * 0.35f;
+            float k = Mathf.Abs(Mathf.Cos(Mathf.PI * _dribbleT / 0.45f));
+            pos.y = transform.position.y + Basketball.Radius + (0.85f - Basketball.Radius) * k;
+            _held.transform.position = pos;
         }
     }
 }

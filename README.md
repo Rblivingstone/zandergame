@@ -79,13 +79,20 @@ double-click the `.exe`. **Zander → Build and Run on this PC** builds the game
 
 ## The game
 
-| Area | Difficulty | Puzzle |
-|---|---|---|
-| Lobby | – | Practice hoop and controls |
-| **Shrine 1 – Warm-Up** | Easy | Stand on the blue plate to free the ball, light the hoop, then rest a ball on the orange plate. |
-| **Shrine 2 – Bounce & Dunk** | Medium | Ride the bounce pad and **dunk** the high "dunk only" hoop to power a lift. Then light **both** timed hoops within 12 seconds. |
-| **Shrine 3 – Chain Reaction** | Hard | Hold a ball on a plate to raise a bridge over a pit. Then score GREEN → RED → BLUE in order, using rotating **Rebound Boards** for bank shots. |
-| **Championship Court** | Boss | First to 15 vs **KING SWAT**. 3-pointers count. Jump his stomp shockwaves, wait out his swats, and hit a moving hoop in the final round. |
+The seven shrines are a training course: each one teaches **one move** you need against King Swat,
+in an order where every room builds on the last. Then comes the boss.
+
+| # | Shrine | Teaches | Puzzle |
+|---|---|---|---|
+| – | Lobby | – | Practice hoop and controls |
+| 1 | **Hop To It** | Jump | Climb stone steps, jump a gap and clear two hurdles to stand on 3 blue plates. |
+| 2 | **Beat the Gate** | Dash + stamina | A plate opens a far gate for ~3 s: too slow walking, just right dashing. The second plate makes you stand still for 1.5 s, which refills your stamina for the final dash. |
+| 3 | **Hand-Off** | Drop / pick up | A ball on a plate holds up a bridge over a pit; ferry more balls across and drop them on two plates. |
+| 4 | **Sharpshooter** | Shoot | Light a CLOSE hoop, a LONG hoop (only counts from behind its glowing line) and a MOVING hoop. |
+| 5 | **Rim Rocker** | Dunk | Dunk three DUNK ONLY hoops: on the floor, on a platform (jump up first), and a high one off a bounce pad. |
+| 6 | **Hang Time** | Hang on the rim | Dunk and keep holding: the hoops light after hanging 2, 4 and 6 seconds. |
+| 7 | **Pickpocket** | Steal + dodge | Steal from a slow practice bot, then catch SPEEDY (dash!), dodge its steal-back lunges, and score both balls. |
+| ★ | **Championship Court** | Everything | One ball, first to 15 vs **King Swat**: tight defence, steals, swats, stomps, and a moving hoop in the final round. |
 
 Basketball mechanics: auto pick-up, dribbling, a timing shot meter with
 kid-friendly aim assist, free throws, one-button auto-leap dunks (90% go in,

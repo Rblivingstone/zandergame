@@ -18,7 +18,7 @@ namespace ZanderGame
         public bool Solved;
         public bool IsBoss;
         public bool IsLobby;
-        public int Difficulty;   // 0 = lobby, 1..3 = shrines, 4 = boss
+        public int Difficulty;   // 0 = lobby, 1..7 = training shrines (in order), 8 = boss
         public readonly List<BallDispenser> Dispensers = new List<BallDispenser>();
         public readonly List<Hoop> Hoops = new List<Hoop>();
 

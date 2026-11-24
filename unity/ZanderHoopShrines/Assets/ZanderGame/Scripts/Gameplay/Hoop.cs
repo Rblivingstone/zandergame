@@ -30,6 +30,12 @@ namespace ZanderGame
         public Color HoopColor = new Color(1f, 0.45f, 0.1f);
         public float RimRadius = DefaultRimRadius;
         public bool AcceptPlayerShots = true;
+        /// <summary>Only shots taken from at least this far away count (0 = any).</summary>
+        public float MinShotDistance;
+        /// <summary>Lights up only after Zander hangs on the rim for HangSeconds.</summary>
+        public bool LightByHang;
+        public float HangSeconds = 3f;
+        float _hang;
 
         public event Action<Hoop, Basketball> Scored;
 
@@ -178,6 +184,17 @@ namespace ZanderGame
                 GameAudio.PlayAt("buzz", RimCenter, 0.4f);
                 return;
             }
+            if (MinShotDistance > 0f && !ball.IsDunk && ball.LastThrower == BallOwner.Player)
+            {
+                var o = ball.ShotOrigin - RimCenter;
+                if (new Vector2(o.x, o.z).magnitude < MinShotDistance - 0.25f)
+                {
+                    Hud.Toast("Too close! Shoot from behind the glowing line.", HoopColor);
+                    GameAudio.PlayAt("buzz", RimCenter, 0.4f);
+                    ball.ScheduleDespawn(1.5f);
+                    return;
+                }
+            }
             if (!AcceptPlayerShots && ball.LastThrower == BallOwner.Player)
             {
                 Hud.Toast("Wrong hoop! Shoot at YOUR hoop!", Color.white);
@@ -189,7 +206,11 @@ namespace ZanderGame
                 Rumble.Pulse(ball.IsDunk ? 0.8f : 0.15f, ball.IsDunk ? 1f : 0.45f, ball.IsDunk ? 0.3f : 0.15f);
             Effects.Swish(RimCenter + Vector3.down * 0.3f, HoopColor);
 
-            if (Mode == HoopMode.Latch)
+            if (Mode == HoopMode.Latch && LightByHang)
+            {
+                if (!_lit) Hud.Toast("Now keep holding {DUNK} - HANG for " + HangSeconds.ToString("0") + " seconds!", HoopColor, 1.6f);
+            }
+            else if (Mode == HoopMode.Latch)
             {
                 if (!_lit) GameAudio.Play("chime", 0.8f);
                 _lit = true;
@@ -215,6 +236,32 @@ namespace ZanderGame
             SetLitVisual(true);
             yield return new WaitForSeconds(0.8f);
             SetLitVisual(false);
+        }
+
+        /// <summary>Called every frame while Zander hangs on this rim.</summary>
+        public void AddHangTime(float dt)
+        {
+            if (!LightByHang || _lit) return;
+            _hang += dt;
+            if (_label != null) _label.text = (_baseLabel ?? "") + "\nHANG " + Mathf.Max(0f, HangSeconds - _hang).ToString("0.0");
+            if (_hang >= HangSeconds)
+            {
+                _lit = true;
+                SetLitVisual(true);
+                GameAudio.Play("chime", 0.9f);
+                Hud.Toast("HANG TIME! Hoop lit!", HoopColor, 1.2f);
+                if (_label != null) _label.text = _baseLabel;
+            }
+        }
+
+        /// <summary>Zander let go of the rim.</summary>
+        public void EndHang()
+        {
+            if (!LightByHang || _lit) return;
+            if (_hang > 0.2f)
+                Hud.Toast("Let go too soon! Hold {DUNK} for " + HangSeconds.ToString("0") + " seconds.", Color.white, 1.4f);
+            _hang = 0f;
+            if (_label != null) _label.text = _baseLabel;
         }
 
         public void ResetLight()

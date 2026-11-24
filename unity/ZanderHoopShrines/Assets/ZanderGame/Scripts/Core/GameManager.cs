@@ -25,7 +25,17 @@ namespace ZanderGame
         public ThirdPersonCamera Cam { get; private set; }
 
         public int ShrinesCleared { get; private set; }
-        public int ShrineCount => 3;
+        public int ShrineCount
+        {
+            get
+            {
+                int n = 0;
+                if (Rooms != null)
+                    foreach (var r in Rooms)
+                        if (!r.IsLobby && !r.IsBoss) n++;
+                return n;
+            }
+        }
         public float PlayTime { get; private set; }
         public int HintIndex { get; private set; } = -1;
         public bool Won { get; private set; }
@@ -149,7 +159,7 @@ namespace ZanderGame
             // shrine completion
             foreach (var r in Rooms)
             {
-                if (r.Solved || r.Exit == null || !r.Exit.IsOpen) continue;
+                if (r.Solved || r.Exit == null || !r.Exit.IsSolved) continue;
                 r.Solved = true;
                 ShrinesCleared++;
                 GameAudio.Play("solve");
@@ -192,8 +202,8 @@ namespace ZanderGame
             CurrentRoom = r;
             HintIndex = -1;
             if (r.IsLobby) return;
-            string diff = r.Difficulty == 1 ? "EASY" : r.Difficulty == 2 ? "MEDIUM" : r.Difficulty == 3 ? "HARD" : "BOSS";
-            Hud.Banner(r.Name.ToUpperInvariant() + "\n" + diff + " - " + r.Subtitle, 3f);
+            string line2 = r.IsBoss ? r.Subtitle : "LEARN TO: " + r.Subtitle;
+            Hud.Banner(r.Name.ToUpperInvariant() + "\n" + line2, 3f);
             GameAudio.Play("chime", 0.6f);
         }
 

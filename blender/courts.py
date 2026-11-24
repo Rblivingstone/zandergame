@@ -398,10 +398,14 @@ def _icon_ball(c, x, y, r):
 # Court list - must match LevelBuilder.cs
 COURTS = [
     ("Lobby", 16, 14, "#1F5FD6", False, False, False, 6.0, "ball"),
-    ("Shrine1", 18, 24, "#E8772E", True, False, False, 6.0, "ball"),
-    ("Shrine2", 22, 32, "#2FBF68", False, True, False, 6.0, "ball"),
-    ("Shrine3South", 24, 12, "#A65BE0", False, False, False, 6.0, "ball"),
-    ("Shrine3North", 24, 16, "#A65BE0", True, False, False, 6.0, "ball"),
+    ("Jump", 18, 26, "#1F63E0", False, False, False, 6.0, "ball"),
+    ("Dash", 16, 46, "#E8772E", False, False, False, 6.0, "ball"),
+    ("DropSouth", 20, 11, "#2FBF68", False, False, False, 6.0, "ball"),
+    ("DropNorth", 20, 12, "#2FBF68", False, False, False, 6.0, "ball"),
+    ("Shoot", 20, 32, "#A65BE0", True, False, False, 6.5, "ball"),
+    ("Dunk", 20, 30, "#FF5D8F", True, False, False, 6.0, "ball"),
+    ("Hang", 20, 30, "#16A3A3", True, False, False, 6.0, "ball"),
+    ("Steal", 22, 32, "#E0245E", True, False, False, 6.0, "ball"),
     ("Arena", 30, 40, "#6A2DB8", True, True, True, 6.5, "crown"),
 ]
 

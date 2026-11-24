@@ -7,10 +7,9 @@ namespace ZanderGame
     /// Builds the whole game world at runtime. The areas run south -> north along +Z:
     ///
     ///   Lobby (z 0-14)         practice hoop, controls sign
-    ///   Shrine 1 (z 18-42)     "Warm-Up"         EASY   - plates + a shot
-    ///   Shrine 2 (z 46-78)     "Bounce & Dunk"   MEDIUM - bounce pad, dunk, lift, timed hoops
-    ///   Shrine 3 (z 86-122)    "Chain Reaction"  HARD   - ball plate bridge, rebound boards, order
-    ///   Championship Court (z 130-170) shooting contest vs KING SWAT
+    ///   7 training shrines     JUMP, DASH, DROP, SHOOT, DUNK, HANG, STEAL - each teaches
+    ///                          one move needed against the boss
+    ///   Championship Court     one-ball game vs KING SWAT
     /// </summary>
     public class LevelBuilder
     {
@@ -30,9 +29,7 @@ namespace ZanderGame
         public void BuildAll()
         {
             BuildLobby();
-            BuildShrine1();
-            BuildShrine2();
-            BuildShrine3();
+            BuildShrines();
             BuildArena();
         }
 
@@ -328,268 +325,323 @@ namespace ZanderGame
             Sign(a, "ZANDER'S\nHOOP SHRINES", new Vector3(0, 5.6f, z1 - 0.12f), 0.9f, Gold, 0);
             Sign(a, "CONTROLLER:  MOVE: LEFT STICK   LOOK: RIGHT STICK   JUMP: A\nSHOOT: HOLD RT   DUNK: X   DASH: LT   DROP: B   USE: Y\nKEYBOARD:  WASD  SPACE  SHIFT  LEFT MOUSE  C=DUNK  Q  E  H",
                 new Vector3(x1 - 0.12f, 3.2f, 7), 0.32f, Color.white, 90);
-            Sign(a, "Beat 3 shrines...\nthen beat KING SWAT!", new Vector3(x0 + 0.12f, 3.4f, 4), 0.4f, Gold, -90);
+            Sign(a, "Learn 7 moves in 7 shrines...\nthen beat KING SWAT!", new Vector3(x0 + 0.12f, 3.4f, 4), 0.4f, Gold, -90);
             Corridor(a, 14, 18, 0);
         }
 
         // =====================================================================
-        // SHRINE 1 - WARM-UP (easy)
-        //   Gate needs: the hoop lit + a ball resting on the ORANGE ball plate.
-        //   But the only ball is locked in a glass cage that opens when Zander
-        //   stands on the BLUE step plate.
+        // THE SEVEN TRAINING SHRINES
+        // Each shrine teaches ONE move Zander needs against King Swat, in an order
+        // where every room builds on the last:
+        //   1 JUMP  2 DASH  3 DROP  4 SHOOT  5 DUNK  6 HANG  7 STEAL
+        // Rooms are laid out south -> north along +Z, joined by short corridors.
         // =====================================================================
-        void BuildShrine1()
+        float _z = 18f;          // where the next shrine starts (after the lobby corridor)
+        int _shrineNo;
+
+        class Shell
         {
-            var a = Area("Shrine1").transform;
-            const float x0 = -9, x1 = 9, z0 = 18, z1 = 42;
-            CourtFloor("Shrine1", a, x0, x1, z0, z1, 0, Mat.Hex("#E8772E"), true);
-            Walls(a, x0, x1, z0, z1, 0, 11, 3.6f, 3.0f);
-            Roof(a, x0, x1, z0, z1, 11f);
-            SideBanners(a, x0, x1, 6.5f, new[] { 22f, 36f }, "Banner_Shrine", "Banner_Shrine");
-            Pillars(a, x0, x1, z0, z1, 0);
-            var room = NewRoom("Shrine 1: Warm-Up", "Plates and Hoops", 16, 44, new Vector3(0, 0.05f, 20), 1);
-            room.Objective = "Light the hoop AND put a ball on the orange BALL plate to open the gate.";
-            room.Hints = new[]
-            {
-                "The ball is locked in a glass cage. Stand on the BLUE plate to open it.",
-                "Shoot the ball into the hoop to light it up.",
-                "Get a ball again (the rack makes a new one) and stand by the ORANGE plate. Press {DROP} to place it.",
-                "When both crystals over the gate glow, the gate opens!"
-            };
-
-            var stepPlate = PressurePlate.Create("Step Plate", a, new Vector3(-5, 0, 25), PlateKind.Feet, latch: true);
-            var rack = BallDispenser.Create("Rack", a, new Vector3(5, 0, 25), 1);
-            room.Dispensers.Add(rack);
-            BuildCage(a, new Vector3(5, 0, 25), stepPlate);
-
-            var hoop = Hoop.Create("Shrine Hoop", a, new Vector3(0, 0, 38.4f), 180, Orange, HoopMode.Latch, "SHOOT ME!");
-            room.Hoops.Add(hoop);
-            var ballPlate = PressurePlate.Create("Ball Plate", a, new Vector3(5.5f, 0, 33), PlateKind.Ball);
-
-            room.Exit = Gate.Create("Gate1", a, new Vector3(0, 0, z1 + 0.5f), 0, new List<Signal> { hoop, ballPlate });
-            Sign(a, "SHRINE 1\nWARM-UP", new Vector3(0, 5.6f, z0 + 0.12f), 0.7f, Gold, 180);
-            Sign(a, "BLUE plates = stand on them\nORANGE plates = put a ball on them", new Vector3(x0 + 0.12f, 2.6f, 30),
-                0.33f, Color.white, -90);
-            Corridor(a, 42, 46, 0);
+            public Transform A;
+            public Room Room;
+            public float X0, X1, Z0, Z1;
         }
 
-        void BuildCage(Transform parent, Vector3 pos, Signal opener)
+        /// <summary>Floor, walls, roof, pillars, banners, sign and room record for one shrine.</summary>
+        Shell Shrine(string key, string title, string teaches, float w, float l, string paint, bool hoopNorth,
+            float wallH = 12f, float pit0 = 0f, float pit1 = 0f)
         {
-            var cage = Build.Group("Cage", parent, pos);
-            var mover = cage.AddComponent<SignalMover>();
-            mover.Inputs.Inputs.Add(opener);
-            mover.Latch = true;
-            mover.OffLocal = pos;
-            mover.OnLocal = pos + Vector3.down * 2.7f;
-            mover.Speed = 2.5f;
-            var glass = Mat.Glass(new Color(0.6f, 0.85f, 1f, 0.35f));
-            var frame = Mat.Color("#2C3E66", 0.4f);
-            const float s = 1.7f, h = 2.5f;
-            for (int i = 0; i < 4; i++)
-            {
-                float ang = i * 90f;
-                var rot = Quaternion.Euler(0, ang, 0);
-                var p = rot * new Vector3(0, h / 2, s / 2);
-                Build.Box("Glass", cage.transform, p, new Vector3(s, h, 0.06f), glass, true, rot);
-                Build.Box("Post", cage.transform, rot * new Vector3(s / 2, h / 2, s / 2), new Vector3(0.12f, h, 0.12f), frame, false);
-            }
-            Build.Box("Roof", cage.transform, new Vector3(0, h, 0), new Vector3(s + 0.1f, 0.1f, s + 0.1f), frame);
-            cage.AddComponent<Rigidbody>().isKinematic = true;
-        }
-
-        // =====================================================================
-        // SHRINE 2 - BOUNCE & DUNK (medium)
-        //   1. A DUNK-ONLY hoop hangs high on a tower. Carry a ball onto the bounce
-        //      pad and press SHOOT in mid-air to dunk -> powers the lift.
-        //   2. Ride the lift up to the ledge.
-        //   3. Two TIMED hoops (one on the ledge, one far below) must be lit at the
-        //      same time - each only stays lit for 12 seconds!
-        // =====================================================================
-        void BuildShrine2()
-        {
-            var a = Area("Shrine2").transform;
-            const float x0 = -11, x1 = 11, z0 = 46, z1 = 78;
-            const float ledgeZ = 66, ledgeY = 4;
-            CourtFloor("Shrine2", a, x0, x1, z0, z1, 0, Mat.Hex("#3CE07A"), false, true);
-            Walls(a, x0, x1, z0, z1, 0, 13, 3.6f, 3.0f, 0, 4.3f, ledgeY, ledgeY + 4.3f);
-            Roof(a, x0, x1, z0, z1, 13f);
-            SideBanners(a, x0, x1, 8.5f, new[] { 50f, 60f }, "Banner_Shrine", "Banner_Shrine");
-            Pillars(a, x0, x1, z0, ledgeZ, 0);
-            var room = NewRoom("Shrine 2: Bounce & Dunk", "Fly high!", 44, 80, new Vector3(0, 0.05f, 48), 2);
-            room.Objective = "Dunk the high hoop to power the lift, then light BOTH timed hoops at the same time.";
-            room.Hints = new[]
-            {
-                "Grab a ball, then run onto the green BOUNCE pad. It throws you way up high!",
-                "While flying up next to the purple DUNK ONLY hoop, press {DUNK} to slam dunk it!",
-                "The dunk powers the lift on the right side. Ride it up to the ledge.",
-                "Timed hoops only stay lit for 12 seconds. Light the one on the ledge, grab another ball, then shoot the one far below!",
-                "Tip: the rack on the ledge makes a new ball quickly. Hold SHOOT and aim the camera at the hoop."
-            };
-
-            // ledge
-            Build.StoneBox("Ledge", a, new Vector3(0, ledgeY / 2, (ledgeZ + z1) / 2), new Vector3(x1 - x0, ledgeY, z1 - ledgeZ));
-            var ledgeFloor = Build.Floor("LedgeTop", a, new Vector3(0, ledgeY + 0.01f, (ledgeZ + z1) / 2), x1 - x0, z1 - ledgeZ,
-                Flagstones(x1 - x0, z1 - ledgeZ), 0.2f);
-            ledgeFloor.name = "LedgeTop";
-            var glow = Mat.Glow(Mat.Hex("#FFB347"), Mat.Hex("#FF9A1F"), 1.2f);
-            Build.Box("LedgeTrim", a, new Vector3(0, ledgeY - 0.1f, ledgeZ - 0.02f), new Vector3(x1 - x0, 0.12f, 0.06f), glow, false);
-
-            // ground-floor ball rack
-            room.Dispensers.Add(BallDispenser.Create("Rack", a, new Vector3(-1.5f, 0, 52), 1));
-
-            // bounce pad + dunk tower
-            BouncePad.Create("Bounce Pad", a, new Vector3(-6, 0, 57.4f), 5.8f);
-            StoneWall("DunkTower", a, new Vector3(-6, 1.7f, 59.9f), new Vector3(1.4f, 3.4f, 1.4f));
-            var dunkHoop = Hoop.Create("Dunk Hoop", a, new Vector3(-6, 3.4f, 58.7f), 180, Purple, HoopMode.Latch, "DUNK ONLY");
-            dunkHoop.DunkOnly = true;
-            room.Hoops.Add(dunkHoop);
-
-            // lift
-            var lift = Build.Group("Lift", a, new Vector3(7, -0.2f, 64.4f));
-            Material liftGlow;
-            var liftModel = ModelLibrary.Spawn("LiftPlatform", lift.transform, Vector3.zero);
-            var liftGlows = liftModel != null ? ModelLibrary.Materials(liftModel, "LiftGlow") : null;
-            if (liftGlows != null && liftGlows.Count > 0)
-            {
-                liftGlow = liftGlows[0];
-                Build.Collider("LiftDeckCol", lift.transform, Vector3.zero, new Vector3(3, 0.4f, 3));
-            }
-            else
-            {
-                if (liftModel != null) Object.Destroy(liftModel);
-                liftGlow = Mat.Glow(Mat.Hex("#4E5668"), Color.black, 1f);
-                Build.Box("LiftDeck", lift.transform, Vector3.zero, new Vector3(3, 0.4f, 3), Mat.Color("#2C3E66", 0.4f));
-                Build.Box("LiftGlow", lift.transform, new Vector3(0, 0.21f, 0), new Vector3(2.4f, 0.02f, 2.4f), liftGlow, false);
-            }
-            lift.AddComponent<Rigidbody>().isKinematic = true;
-            var mp = lift.AddComponent<MovingPlatform>();
-            mp.A = new Vector3(7, -0.2f, 64.4f);
-            mp.B = new Vector3(7, ledgeY - 0.2f, 64.4f);
-            mp.Speed = 1.6f;
-            mp.Pause = 2f;
-            mp.Inputs.Inputs.Add(dunkHoop);
-            mp.SetGlow(liftGlow);
-            Build.Label("LIFT", lift.transform, new Vector3(0, 1.2f, 0), 0.35f, Green, 0, true);
-
-            // ledge rack + timed hoops
-            room.Dispensers.Add(BallDispenser.Create("LedgeRack", a, new Vector3(0, ledgeY, 70), 2));
-            var t1 = Hoop.Create("Ledge Hoop", a, new Vector3(8.2f, ledgeY, 75), -90, Gold, HoopMode.Timed, "TIMED");
-            t1.LitDuration = 12f;
-            var t2 = Hoop.Create("Low Hoop", a, new Vector3(-7, 0, 49.6f), 0, Gold, HoopMode.Timed, "TIMED");
-            t2.LitDuration = 12f;
-            room.Hoops.Add(t1);
-            room.Hoops.Add(t2);
-
-            room.Exit = Gate.Create("Gate2", a, new Vector3(0, ledgeY, z1 + 0.5f), 0, new List<Signal> { t1, t2 });
-            Sign(a, "SHRINE 2\nBOUNCE & DUNK", new Vector3(0, 5.6f, z0 + 0.12f), 0.7f, Gold, 180);
-            Sign(a, "Light BOTH gold hoops\nat the same time!", new Vector3(0, ledgeY + 5.4f, z1 - 0.12f), 0.45f, Color.white, 0);
-
-            // downhill corridor to shrine 3
-            var c = Build.Group("Ramp", a).transform;
-            float rz0 = 78, rz1 = 86;
-            var d = new Vector3(0, -ledgeY, rz1 - rz0).normalized;
-            var n = Vector3.Cross(d, Vector3.right).normalized;
-            if (n.y < 0) n = -n;
-            var rampCenter = new Vector3(0, ledgeY / 2, (rz0 + rz1) / 2) - n * 0.25f;
-            var len = new Vector2(rz1 - rz0, ledgeY).magnitude;
-            Build.Box("RampDeck", c, rampCenter, new Vector3(4.4f, 0.5f, len + 0.4f), Flagstones(4.4f, len + 0.4f), true,
-                Quaternion.LookRotation(d, n));
-            StoneWall("RampW", c, new Vector3(-2.7f, 3.5f, (rz0 + rz1) / 2), new Vector3(1, 9, rz1 - rz0));
-            StoneWall("RampE", c, new Vector3(2.7f, 3.5f, (rz0 + rz1) / 2), new Vector3(1, 9, rz1 - rz0));
-            Roof(c, -3.2f, 3.2f, rz0, rz1, 8f, false);
-            Lantern(c, new Vector3(0, 8f, 82), 1.2f, "#FFB347");
-        }
-
-        // =====================================================================
-        // SHRINE 3 - CHAIN REACTION (hard)
-        //   1. A bottomless pit splits the room. Hold a ball on the ORANGE plate to
-        //      raise the bridge (take it off and the bridge sinks!).
-        //   2. Across the pit: score GREEN -> RED -> BLUE in that order.
-        //      RED is a normal shot. GREEN (high on a tower) and BLUE (facing the
-        //      wall) can only be reached with a bank shot off a ROTATING REBOUND
-        //      BOARD - press E to turn each board until its laser turns green.
-        // =====================================================================
-        void BuildShrine3()
-        {
-            var a = Area("Shrine3").transform;
-            const float x0 = -12, x1 = 12, z0 = 86, z1 = 122;
-            const float pit0 = 98, pit1 = 106;
+            _shrineNo++;
+            var s = new Shell { A = Area("Shrine" + _shrineNo + "_" + key).transform, X0 = -w / 2, X1 = w / 2, Z0 = _z, Z1 = _z + l };
+            var a = s.A;
+            bool pit = pit1 > pit0;
             const float pitY = -9f;
-            CourtFloor("Shrine3South", a, x0, x1, z0, pit0, 0, Mat.Hex("#C86BFF"), false);
-            CourtFloor("Shrine3North", a, x0, x1, pit1, z1, 0, Mat.Hex("#C86BFF"), true);
-            // pit
-            var pitMat = Mat.Glow(Mat.Hex("#0B1630"), Mat.Hex("#1E4BFF"), 0.6f);
-            Build.Box("PitGlow", a, new Vector3(0, pitY, (pit0 + pit1) / 2), new Vector3(x1 - x0, 0.2f, pit1 - pit0), pitMat);
-            Build.StoneBox("PitWallS", a, new Vector3(0, pitY / 2 - 0.5f, pit0 + 0.01f), new Vector3(x1 - x0, -pitY - 1f, 0.02f));
-            Build.StoneBox("PitWallN", a, new Vector3(0, pitY / 2 - 0.5f, pit1 - 0.01f), new Vector3(x1 - x0, -pitY - 1f, 0.02f));
-            Build.PointLight(a, new Vector3(0, -3, 102), Mat.Hex("#1E4BFF"), 14f, 2f);
-            Walls(a, x0, x1, z0, z1, pitY, 13 - pitY, 3.6f, 3.0f, 0, 4.3f, 0, 4.3f);
-            Roof(a, x0, x1, z0, z1, 13f);
-            SideBanners(a, x0, x1, 8.5f, new[] { 92f, 114f }, "Banner_Shrine", "Banner_Shrine");
-            Pillars(a, x0, x1, z0, pit0, 0);
-            var room = NewRoom("Shrine 3: Chain Reaction", "Think before you shoot!", 80, 124, new Vector3(0, 0.05f, 88), 3);
-            room.Objective = "Raise the bridge, then score GREEN, RED, BLUE in order. Use the Rebound Boards!";
-            room.Hints = new[]
+            if (pit)
             {
-                "Put a ball on the ORANGE plate ({DROP}) to raise the bridge. It only stays up while the ball is there!",
-                "Look at the ORDER totem: 1 = GREEN, 2 = RED, 3 = BLUE.",
-                "GREEN and BLUE can't be hit directly. Shoot a REBOUND BOARD and it fires the ball for you.",
-                "Stand next to a board and press {USE} to turn it. When its laser turns GREEN it's aiming at a target.",
-                "Shoot the wrong hoop and the order resets - no worries, just try again!"
-            };
-
-            // south side: rack + ball plate -> bridge
-            room.Dispensers.Add(BallDispenser.Create("Rack", a, new Vector3(7, 0, 90), 2));
-            var plate = PressurePlate.Create("Bridge Plate", a, new Vector3(-7, 0, 93), PlateKind.Ball);
-            var bridge = Build.Group("Bridge", a, new Vector3(0, -6f, (pit0 + pit1) / 2));
-            var deckSize = new Vector3(4, 0.5f, pit1 - pit0 + 0.6f);
-            if (ModelLibrary.Spawn("Bridge", bridge.transform, Vector3.zero) != null)
-                Build.Collider("DeckCol", bridge.transform, Vector3.zero, deckSize);
+                CourtFloor(key + "South", a, s.X0, s.X1, s.Z0, s.Z0 + pit0, 0, Mat.Hex(paint), false);
+                CourtFloor(key + "North", a, s.X0, s.X1, s.Z0 + pit1, s.Z1, 0, Mat.Hex(paint), hoopNorth);
+                var pitMat = Mat.Glow(Mat.Hex("#0B1630"), Mat.Hex("#1E4BFF"), 0.6f);
+                Build.Box("PitGlow", a, new Vector3(0, pitY, s.Z0 + (pit0 + pit1) / 2), new Vector3(w, 0.2f, pit1 - pit0), pitMat);
+                Build.StoneBox("PitWallS", a, new Vector3(0, pitY / 2 - 0.5f, s.Z0 + pit0 + 0.01f), new Vector3(w, -pitY - 1f, 0.02f));
+                Build.StoneBox("PitWallN", a, new Vector3(0, pitY / 2 - 0.5f, s.Z0 + pit1 - 0.01f), new Vector3(w, -pitY - 1f, 0.02f));
+                Build.PointLight(a, new Vector3(0, -3, s.Z0 + (pit0 + pit1) / 2), Mat.Hex("#1E4BFF"), 14f, 2f);
+                Walls(a, s.X0, s.X1, s.Z0, s.Z1, pitY, wallH - pitY, 3.6f, 3.0f, 0, 4.3f, 0, 4.3f);
+            }
             else
             {
-                Build.Box("Deck", bridge.transform, Vector3.zero, new Vector3(4, 0.5f, pit1 - pit0 + 0.6f), Mat.Color("#2C3E66", 0.4f));
-                Build.Box("Edge", bridge.transform, new Vector3(-1.95f, 0.26f, 0), new Vector3(0.1f, 0.04f, pit1 - pit0),
-                    Mat.Glow(Mat.Hex("#FF8A1F"), Mat.Hex("#FF8A1F"), 1.5f), false);
-                Build.Box("Edge", bridge.transform, new Vector3(1.95f, 0.26f, 0), new Vector3(0.1f, 0.04f, pit1 - pit0),
-                    Mat.Glow(Mat.Hex("#FF8A1F"), Mat.Hex("#FF8A1F"), 1.5f), false);
+                CourtFloor(key, a, s.X0, s.X1, s.Z0, s.Z1, 0, Mat.Hex(paint), hoopNorth);
+                Walls(a, s.X0, s.X1, s.Z0, s.Z1, 0, wallH, 3.6f, 3.0f);
+                Pillars(a, s.X0, s.X1, s.Z0, s.Z1, 0);
             }
+            Roof(a, s.X0, s.X1, s.Z0, s.Z1, wallH);
+            SideBanners(a, s.X0, s.X1, wallH - 4.5f, new[] { s.Z0 + 4f }, "Banner_Shrine", "Banner_Shrine");
+            Sign(a, "SHRINE " + _shrineNo + "\n" + title.ToUpperInvariant(), new Vector3(0, 5.6f, s.Z0 + 0.12f), 0.7f, Gold, 180);
+            s.Room = NewRoom("Shrine " + _shrineNo + ": " + title, teaches, s.Z0 - 2f, s.Z1 + 2f, new Vector3(0, 0.05f, s.Z0 + 2f), _shrineNo);
+            Corridor(a, s.Z1, s.Z1 + 4f, 0);
+            _z = s.Z1 + 4f;
+            return s;
+        }
+
+        Gate ExitGate(Shell s, List<Signal> inputs, bool latch = true)
+        {
+            var g = Gate.Create("ExitGate", s.A, new Vector3(0, 0, s.Z1 + 0.5f), 0, inputs, latch);
+            s.Room.Exit = g;
+            return g;
+        }
+
+        void Step(Transform a, string name, Vector3 center, Vector3 size)
+        {
+            Build.StoneBox(name, a, center, size);
+            Build.Box(name + "_Top", a, center + Vector3.up * (size.y / 2 + 0.01f), new Vector3(size.x, 0.02f, size.z),
+                Mat.Color("#7C879E", 0.2f), false);
+        }
+
+        void BuildShrines()
+        {
+            BuildJumpShrine();
+            BuildDashShrine();
+            BuildDropShrine();
+            BuildShootShrine();
+            BuildDunkShrine();
+            BuildHangShrine();
+            BuildStealShrine();
+        }
+
+        // ---------------------------------------------------------------- 1 JUMP
+        void BuildJumpShrine()
+        {
+            var s = Shrine("Jump", "Hop To It", "JUMP", 18, 26, "#1F63E0", false);
+            var a = s.A;
+            float z = s.Z0;
+            s.Room.Objective = "Press {JUMP} to JUMP. Climb up and stand on all 3 blue plates to open the gate.";
+            s.Room.Hints = new[]
+            {
+                "Press {JUMP} to jump. You can steer while you're in the air!",
+                "Climb the stone steps one at a time - each one is a small jump up.",
+                "From the top step, jump across the gap to the other platform.",
+                "Jump over the low walls to reach the last plate."
+            };
+            // staircase -> plate 1
+            Step(a, "Step1", new Vector3(-4.5f, 0.4f, z + 7f), new Vector3(3f, 0.8f, 3f));
+            Step(a, "Step2", new Vector3(-4.5f, 0.8f, z + 10f), new Vector3(3f, 1.6f, 3f));
+            Step(a, "Step3", new Vector3(-4.5f, 1.2f, z + 13f), new Vector3(3f, 2.4f, 3f));
+            var p1 = PressurePlate.Create("Plate1", a, new Vector3(-4.5f, 2.4f, z + 13f), PlateKind.Feet, latch: true);
+            // gap jump -> plate 2
+            Step(a, "Island", new Vector3(1.0f, 1.2f, z + 13f), new Vector3(3f, 2.4f, 3f));
+            var p2 = PressurePlate.Create("Plate2", a, new Vector3(1.0f, 2.4f, z + 13f), PlateKind.Feet, latch: true);
+            // hurdles -> plate 3
+            Step(a, "HurdleLow", new Vector3(0, 0.45f, z + 18.5f), new Vector3(18f, 0.9f, 0.6f));
+            Step(a, "HurdleHigh", new Vector3(0, 0.6f, z + 21f), new Vector3(18f, 1.2f, 0.6f));
+            var p3 = PressurePlate.Create("Plate3", a, new Vector3(5f, 0, z + 23.5f), PlateKind.Feet, latch: true);
+            ExitGate(s, new List<Signal> { p1, p2, p3 });
+        }
+
+        // ---------------------------------------------------------------- 2 DASH
+        void BuildDashShrine()
+        {
+            var s = Shrine("Dash", "Beat the Gate", "DASH + STAMINA", 16, 46, "#E8772E", false);
+            var a = s.A;
+            float z = s.Z0;
+            s.Room.Objective = "Hold {SPRINT} to DASH. Step on a plate, then dash through its gate before it shuts!";
+            s.Room.Hints = new[]
+            {
+                "Walking is too slow - hold {SPRINT} to DASH. Watch the stamina wheel above your head.",
+                "The wheel refills as soon as you let go of {SPRINT}.",
+                "The second plate makes you stand still for a moment - that's your chance to refill stamina!",
+                "If the wheel runs out you're OUT OF BREATH and slow. Let it refill completely, then try again."
+            };
+            var t1 = TimedSwitch.Create("DashPlate1", a, new Vector3(0, 0, z + 3f), 0f, 3.2f);
+            // inner wall with a timed gate
+            StoneWall("CrossW", a, new Vector3((s.X0 - 2f) / 2f, 3f, z + 24f), new Vector3(-s.X0 - 2f, 6f, 1f));
+            StoneWall("CrossE", a, new Vector3((s.X1 + 2f) / 2f, 3f, z + 24f), new Vector3(s.X1 - 2f, 6f, 1f));
+            var g1 = Gate.Create("TimedGate", a, new Vector3(0, 0, z + 24f), 0, new List<Signal> { t1 }, false);
+            g1.Panel.Speed = 9f;
+            g1.LatchWhenPassed = true;
+            var t2 = TimedSwitch.Create("DashPlate2", a, new Vector3(0, 0, z + 26.5f), 1.5f, 3.0f);
+            var exit = ExitGate(s, new List<Signal> { t2 }, false);
+            exit.Panel.Speed = 9f;
+            exit.LatchWhenPassed = true;
+            Sign(a, "DASH!", new Vector3(s.X0 + 0.12f, 3f, z + 12f), 0.6f, Gold, -90);
+        }
+
+        // ---------------------------------------------------------------- 3 DROP
+        void BuildDropShrine()
+        {
+            const float pit0 = 11f, pit1 = 20f;
+            var s = Shrine("Drop", "Hand-Off", "DROP + PICK UP", 20, 32, "#2FBF68", false, 12f, pit0, pit1);
+            var a = s.A;
+            float z = s.Z0;
+            s.Room.Objective = "Press {DROP} next to an ORANGE plate to put a ball on it. Fill both far plates!";
+            s.Room.Hints = new[]
+            {
+                "Walk into a ball to pick it up. Stand next to an ORANGE plate and press {DROP} to place it.",
+                "A ball on the first plate raises the bridge. Take it off and the bridge sinks!",
+                "The rack makes a new ball after you take one. Carry more balls across the bridge.",
+                "Need a ball back? Stand by its plate and press {USE} to pick it up."
+            };
+            var rack = BallDispenser.Create("Rack", a, new Vector3(6, 0, z + 4f), 3);
+            rack.RespawnDelay = 1.2f;
+            s.Room.Dispensers.Add(rack);
+            var bridgePlate = PressurePlate.Create("BridgePlate", a, new Vector3(-6, 0, z + 7f), PlateKind.Ball);
+            var bridge = Build.Group("Bridge", a, new Vector3(0, -6f, z + (pit0 + pit1) / 2));
+            var deck = new Vector3(4, 0.5f, pit1 - pit0 + 0.6f);
+            if (ModelLibrary.Spawn("Bridge", bridge.transform, Vector3.zero) != null)
+                Build.Collider("DeckCol", bridge.transform, Vector3.zero, deck);
+            else Build.Box("Deck", bridge.transform, Vector3.zero, deck, Mat.Color("#2C3E66", 0.4f));
             bridge.AddComponent<Rigidbody>().isKinematic = true;
             var bm = bridge.AddComponent<SignalMover>();
-            bm.Inputs.Inputs.Add(plate);
+            bm.Inputs.Inputs.Add(bridgePlate);
             bm.Latch = false;
-            bm.OffLocal = new Vector3(0, -6f, (pit0 + pit1) / 2);
-            bm.OnLocal = new Vector3(0, -0.25f, (pit0 + pit1) / 2);
+            bm.OffLocal = new Vector3(0, -6f, z + (pit0 + pit1) / 2);
+            bm.OnLocal = new Vector3(0, -0.25f, z + (pit0 + pit1) / 2);
             bm.Speed = 5f;
-            Sign(a, "Ball on plate = bridge UP", new Vector3(-7, 2.4f, 94.6f), 0.3f, PressurePlate.KindColor(PlateKind.Ball), 0);
+            var pb = PressurePlate.Create("PlateB", a, new Vector3(-5, 0, z + 25f), PlateKind.Ball);
+            var pc = PressurePlate.Create("PlateC", a, new Vector3(5, 0, z + 27f), PlateKind.Ball);
+            ExitGate(s, new List<Signal> { pb, pc });
+        }
 
-            // north side
-            room.Dispensers.Add(BallDispenser.Create("Rack2", a, new Vector3(2.5f, 0, 108.5f), 2));
+        // --------------------------------------------------------------- 4 SHOOT
+        void BuildShootShrine()
+        {
+            var s = Shrine("Shoot", "Sharpshooter", "SHOOT", 20, 32, "#A65BE0", true);
+            var a = s.A;
+            float z = s.Z0;
+            s.Room.Objective = "Hold {SHOOT}, let go in the GREEN. Light the CLOSE, LONG and MOVING hoops.";
+            s.Room.Hints = new[]
+            {
+                "Hold {SHOOT} and watch the meter. Let go when it's in the GREEN for a perfect shot.",
+                "Point the camera at a hoop - the green brackets show what you're aiming at.",
+                "The LONG hoop only counts shots from behind its glowing line.",
+                "The MOVING hoop slides - let go just as it starts moving toward you."
+            };
+            var rack = BallDispenser.Create("Rack", a, new Vector3(0, 0, z + 6f), 2);
+            rack.RespawnDelay = 0.6f;
+            s.Room.Dispensers.Add(rack);
+            var close = Hoop.Create("Close Hoop", a, new Vector3(s.X0 + 1.6f, 0, z + 13f), 90, Green, HoopMode.Latch, "CLOSE");
+            var spot = Mat.Glow(Green, Green, 1.2f);
+            TimedSwitch.FloorRing(a, new Vector3(s.X0 + 5.5f, 0.02f, z + 13f), 0.8f, spot, 0, 360, 20);
+            var lng = Hoop.Create("Long Hoop", a, new Vector3(-4.5f, 0, s.Z1 - 1.6f), 180, Orange, HoopMode.Latch, "LONG");
+            lng.MinShotDistance = 6.5f;
+            var line = Mat.Glow(Orange, Orange, 1.5f);
+            TimedSwitch.FloorRing(a, new Vector3(-4.5f, 0.02f, s.Z1 - 1.6f), 6.5f, line, 125f, 235f, 32);
+            var rigGo = Build.Group("MovingHoopRig", a, new Vector3(5f, 0, z + 21f));
+            var rig = rigGo.AddComponent<MovingHoopRig>();
+            rig.Amplitude = 2.5f;
+            rig.Speed = 0.8f;
+            rig.Moving = true;
+            var moving = Hoop.Create("Moving Hoop", rigGo.transform, Vector3.zero, 180, Blue, HoopMode.Latch, "MOVING");
+            s.Room.Hoops.Add(close);
+            s.Room.Hoops.Add(lng);
+            s.Room.Hoops.Add(moving);
+            ExitGate(s, new List<Signal> { close, lng, moving });
+        }
 
-            var red = Hoop.Create("Red Hoop", a, new Vector3(-6.5f, 0, 120), 180, Red, HoopMode.Latch, "RED");
-            var blue = Hoop.Create("Blue Hoop", a, new Vector3(10.4f, 0, 113), 90, Blue, HoopMode.Latch, "BLUE");
-            blue.RequiresRebound = true;
-            StoneWall("GreenTower", a, new Vector3(-9, 2.5f, 110.2f), new Vector3(2.4f, 5f, 2.4f));
-            var green = Hoop.Create("Green Hoop", a, new Vector3(-9, 5f, 110.5f), 0, Green, HoopMode.Latch, "GREEN");
-            green.RequiresRebound = true;
-            room.Hoops.Add(red);
-            room.Hoops.Add(blue);
-            room.Hoops.Add(green);
+        // ---------------------------------------------------------------- 5 DUNK
+        void BuildDunkShrine()
+        {
+            var s = Shrine("Dunk", "Rim Rocker", "DUNK", 20, 30, "#FF5D8F", true);
+            var a = s.A;
+            float z = s.Z0;
+            s.Room.Objective = "Get close with the ball and press {DUNK}. Dunk all 3 DUNK ONLY hoops!";
+            s.Room.Hints = new[]
+            {
+                "Carry a ball close to a hoop and press {DUNK} - Zander leaps up and slams it!",
+                "The platform hoop is too high from the floor. Jump onto the platform first.",
+                "The tallest hoop needs the BOUNCE pad: bounce up, then press {DUNK} in the air.",
+                "Sometimes a dunk clangs off the rim - just try again!"
+            };
+            var rack = BallDispenser.Create("Rack", a, new Vector3(0, 0, z + 5f), 2);
+            s.Room.Dispensers.Add(rack);
+            var d1 = Hoop.Create("Floor Dunk", a, new Vector3(s.X0 + 1.6f, 0, z + 12f), 90, Purple, HoopMode.Latch, "DUNK 1");
+            d1.DunkOnly = true;
+            Step(a, "DunkStep", new Vector3(2.0f, 0.4f, z + 12f), new Vector3(1.6f, 0.8f, 3f));
+            Step(a, "DunkPlatform", new Vector3(5.6f, 0.8f, z + 12f), new Vector3(5.6f, 1.6f, 5f));
+            var d2 = Hoop.Create("Platform Dunk", a, new Vector3(7.0f, 1.6f, z + 12f), -90, Purple, HoopMode.Latch, "DUNK 2");
+            d2.DunkOnly = true;
+            BouncePad.Create("Bounce Pad", a, new Vector3(0, 0, z + 20.4f), 5.8f);
+            StoneWall("DunkTower", a, new Vector3(0, 1.7f, z + 22.9f), new Vector3(1.4f, 3.4f, 1.4f));
+            var d3 = Hoop.Create("High Dunk", a, new Vector3(0, 3.4f, z + 21.7f), 180, Purple, HoopMode.Latch, "DUNK 3");
+            d3.DunkOnly = true;
+            s.Room.Hoops.Add(d1);
+            s.Room.Hoops.Add(d2);
+            s.Room.Hoops.Add(d3);
+            ExitGate(s, new List<Signal> { d1, d2, d3 });
+        }
 
-            // rebound boards (start pointing at nothing)
-            var rb1 = ReboundBoard.Create("Rebound Board A", a, new Vector3(10, 0, 120.3f), 0);
-            var rb2 = ReboundBoard.Create("Rebound Board B", a, new Vector3(-2.5f, 0, 117.5f), 180);
-            rb1.ConeDegrees = 20f;
-            rb2.ConeDegrees = 20f;
+        // ---------------------------------------------------------------- 6 HANG
+        void BuildHangShrine()
+        {
+            var s = Shrine("Hang", "Hang Time", "HANG ON THE RIM", 20, 30, "#16A3A3", true);
+            var a = s.A;
+            float z = s.Z0;
+            s.Room.Objective = "Dunk, then KEEP HOLDING {DUNK} to hang. Hang for 2, 4 and 6 seconds!";
+            s.Room.Hints = new[]
+            {
+                "After you dunk, keep holding {DUNK} to hang on the rim.",
+                "Each hoop shows a countdown while you hang. Let go too early and it resets.",
+                "The middle hoop is on a platform - jump up there first.",
+                "The tall hoop needs the BOUNCE pad, then dunk AND hang!"
+            };
+            var rack = BallDispenser.Create("Rack", a, new Vector3(0, 0, z + 5f), 2);
+            s.Room.Dispensers.Add(rack);
+            var h1 = Hoop.Create("Hang 2", a, new Vector3(s.X0 + 1.6f, 0, z + 12f), 90, Green, HoopMode.Latch, "HANG 2s");
+            h1.DunkOnly = true;
+            h1.LightByHang = true;
+            h1.HangSeconds = 2f;
+            Step(a, "HangStep", new Vector3(2.0f, 0.4f, z + 12f), new Vector3(1.6f, 0.8f, 3f));
+            Step(a, "HangPlatform", new Vector3(5.6f, 0.8f, z + 12f), new Vector3(5.6f, 1.6f, 5f));
+            var h2 = Hoop.Create("Hang 4", a, new Vector3(7.0f, 1.6f, z + 12f), -90, Gold, HoopMode.Latch, "HANG 4s");
+            h2.DunkOnly = true;
+            h2.LightByHang = true;
+            h2.HangSeconds = 4f;
+            BouncePad.Create("Bounce Pad", a, new Vector3(0, 0, z + 20.4f), 5.8f);
+            StoneWall("HangTower", a, new Vector3(0, 1.7f, z + 22.9f), new Vector3(1.4f, 3.4f, 1.4f));
+            var h3 = Hoop.Create("Hang 6", a, new Vector3(0, 3.4f, z + 21.7f), 180, Red, HoopMode.Latch, "HANG 6s");
+            h3.DunkOnly = true;
+            h3.LightByHang = true;
+            h3.HangSeconds = 6f;
+            s.Room.Hoops.Add(h1);
+            s.Room.Hoops.Add(h2);
+            s.Room.Hoops.Add(h3);
+            ExitGate(s, new List<Signal> { h1, h2, h3 });
+        }
 
-
-            var seqGo = new GameObject("HoopSequence");
-            seqGo.transform.SetParent(a, false);
-            var seq = seqGo.AddComponent<HoopSequence>();
-            seq.Setup(new List<Hoop> { green, red, blue }, a, new Vector3(4.5f, 0, 112), 180);
-
-            room.Exit = Gate.Create("Gate3", a, new Vector3(0, 0, z1 + 0.5f), 0, new List<Signal> { seq });
-            Sign(a, "SHRINE 3\nCHAIN REACTION", new Vector3(0, 5.6f, z0 + 0.12f), 0.7f, Gold, 180);
-            Corridor(a, 122, 130, 0);
+        // --------------------------------------------------------------- 7 STEAL
+        void BuildStealShrine()
+        {
+            var s = Shrine("Steal", "Pickpocket", "STEAL + DODGE", 22, 32, "#E0245E", true);
+            var a = s.A;
+            float z = s.Z0;
+            s.Room.Objective = "Get next to a dribbling bot and press {USE} to STEAL. Score with each bot's ball!";
+            s.Room.Hints = new[]
+            {
+                "Walk right up to a bot while it dribbles and press {USE} to steal the ball.",
+                "Score the stolen ball in the hoop of the same colour.",
+                "The SPEEDY bot runs away - DASH ({SPRINT}) to catch it.",
+                "After you steal from SPEEDY, it chases you and lunges - DASH away when it winds up!"
+            };
+            var hoopA = Hoop.Create("Bot Hoop A", a, new Vector3(-6.5f, 0, s.Z1 - 1.6f), 180, Orange, HoopMode.Latch, "SLOWPOKE");
+            var hoopB = Hoop.Create("Bot Hoop B", a, new Vector3(6.5f, 0, s.Z1 - 1.6f), 180, Blue, HoopMode.Latch, "SPEEDY");
+            var botA = SparringBot.Create("Slowpoke", a, new Vector3(-5f, 0, z + 11f), 3f, Orange);
+            botA.PatrolSpeed = 1.8f;
+            botA.Chance = 0.9f;
+            botA.Target = hoopA;
+            var botB = SparringBot.Create("Speedy", a, new Vector3(5f, 0, z + 15f), 4f, Blue);
+            botB.PatrolSpeed = 3.5f;
+            botB.FleeSpeed = 6.2f;      // faster than walking (5.2), slower than dashing (9.5)
+            botB.ChaseSpeed = 4.6f;
+            botB.LungeChance = 0.4f;
+            botB.Chance = 0.7f;
+            botB.Target = hoopB;
+            foreach (var b in new[] { botA, botB })
+            {
+                b.MinX = s.X0 + 1f;
+                b.MaxX = s.X1 - 1f;
+                b.MinZ = z + 2f;
+                b.MaxZ = s.Z1 - 4f;
+            }
+            s.Room.Hoops.Add(hoopA);
+            s.Room.Hoops.Add(hoopB);
+            ExitGate(s, new List<Signal> { hoopA, hoopB });
         }
 
         // =====================================================================
@@ -597,7 +649,10 @@ namespace ZanderGame
         // =====================================================================
         void BuildArena()
         {
+            // the arena is authored at z 130..170 and moved to sit after the last shrine
             var a = Area("Arena").transform;
+            float dz = _z - 130f;
+            a.localPosition = new Vector3(0, 0, dz);
             const float x0 = -15, x1 = 15, z0 = 130, z1 = 170;
             CourtFloor("Arena", a, x0, x1, z0, z1, 0, Mat.Hex("#6A2DB8"), true, true, true, 6.5f);
             Walls(a, x0, x1, z0, z1, 0, 14, 3.6f, 0);
@@ -624,7 +679,7 @@ namespace ZanderGame
                         Build.Prim(PrimitiveType.Cylinder, "Lamp", a, new Vector3(x + k * 1.0f, 13.0f, z), new Vector3(0.7f, 0.05f, 0.7f),
                             lamp, false);
                 }
-            var room = NewRoom("Championship Court", "VS KING SWAT", 124, 172, new Vector3(4, 0.05f, 134.5f), 4);
+            var room = NewRoom("Championship Court", "VS KING SWAT", 126 + dz, 172 + dz, new Vector3(4, 0.05f, 134.5f + dz), 8);
             room.IsBoss = true;
             room.Objective = "One ball, first to 15! Score at the NORTH hoop - shots from outside the big arc are worth 3!";
             room.Hints = new[]
@@ -637,8 +692,8 @@ namespace ZanderGame
                 "Struggling? Press {EASY} for Super Shots (he steals and swats less too)."
             };
 
-            var arena = new BossArena { Room = room, CourtCenter = new Vector3(0, 0, 150), BossSpawn = new Vector3(0, 0, 157),
-                StartLineZ = 136.5f };
+            var arena = new BossArena { Room = room, CourtCenter = new Vector3(0, 0, 150 + dz), BossSpawn = new Vector3(0, 0, 157 + dz),
+                StartLineZ = 136.5f + dz };
 
             // player hoop on a sliding rig
             var rig = Build.Group("PlayerHoopRig", a, new Vector3(0, 0, 166.4f));

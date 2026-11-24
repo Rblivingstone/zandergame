@@ -140,7 +140,7 @@ namespace ZanderGame
             Text(new Rect(0, by + 330, W, 60), Controls.UsingGamepad ? "Press A to start!" : "Click or press SPACE to start!", _med, new Color(1, 1, 1, pulse));
             var st = new GUIStyle(_center);
             st.alignment = TextAnchor.MiddleCenter;
-            Text(new Rect(0, H - 60, W, 40), "Beat 3 shrines, then win the shooting contest against KING SWAT!", st, GoldC);
+            Text(new Rect(0, H - 60, W, 40), "Learn 7 moves in 7 shrines, then beat KING SWAT one-on-one!", st, GoldC);
         }
 
         // ------------------------------------------------------- stamina wheel --
@@ -400,7 +400,7 @@ namespace ZanderGame
             Fill(new Rect(0, 0, W, H), new Color(0.05f, 0.03f, 0.12f, 0.7f));
             float bob = Mathf.Sin(Time.unscaledTime * 3f) * 8f;
             Text(new Rect(0, H * 0.16f + bob, W, 130), "CHAMPION!", _title, GoldC, true);
-            Text(new Rect(0, H * 0.32f, W, 60), "Zander cleared all 3 Hoop Shrines and beat KING SWAT!", _med, Color.white, true);
+            Text(new Rect(0, H * 0.32f, W, 60), "Zander mastered all 7 Hoop Shrines and beat KING SWAT!", _med, Color.white, true);
             int mins = (int)(gm.PlayTime / 60), secs = (int)(gm.PlayTime % 60);
             Text(new Rect(0, H * 0.42f, W, 50), string.Format("Time: {0}:{1:00}      Final score: {2} - {3}", mins, secs,
                 gm.Contest.PlayerScore, gm.Contest.BossScore), _med, new Color(0.7f, 0.9f, 1f));
