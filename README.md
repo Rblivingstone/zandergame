@@ -60,7 +60,7 @@ While Zander runs, the camera slowly swings in behind him unless you're using th
 
 **Dash & stamina:** dashing drains the green stamina wheel next to Zander (about 3.5 s of
 dashing). It starts refilling the moment you let go of Dash. If it runs out completely
-Zander is winded: the wheel turns red, he can't dash and moves a little slower until it
+Zander is winded: the wheel turns red, he can't dash and moves at half speed until it
 has slowly refilled all the way.
 
 ## One-click Windows build

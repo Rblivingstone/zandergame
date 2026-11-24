@@ -21,7 +21,8 @@ namespace ZanderGame
         public const float RechargeSeconds = 2.0f;         // empty -> full after letting go
         public const float ExhaustedRechargeSeconds = 4.5f;// ran out completely: slower
         public float Stamina { get; private set; } = 1f;   // 0..1
-        public bool Exhausted { get; private set; }        // hit zero: no dashing until full again
+        public bool Exhausted { get; private set; }        // hit zero: slow + no dashing until full again
+        public const float WindedSpeedFactor = 0.5f;      // half speed while out of breath
         public bool Dashing { get; private set; }
         public float StaminaShownUntil { get; private set; }
         float _lungeUntil;
@@ -142,7 +143,7 @@ namespace ZanderGame
             Vector3 wish = Quaternion.Euler(0, camYaw, 0) * new Vector3(mv.x, 0, mv.y);
             bool charging = Balls != null && Balls.Charging;
             UpdateStamina(frozen, mv, charging, dt);
-            float speed = Dashing ? DashSpeed : Exhausted ? WalkSpeed * 0.8f : WalkSpeed;
+            float speed = Dashing ? DashSpeed : Exhausted ? WalkSpeed * WindedSpeedFactor : WalkSpeed;
             if (charging) speed *= 0.35f;
 
             if (!frozen && !IsStunned && Controls.JumpDown && _coyote > 0f && !IsHanging)
