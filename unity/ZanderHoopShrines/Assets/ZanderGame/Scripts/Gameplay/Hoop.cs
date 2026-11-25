@@ -34,6 +34,8 @@ namespace ZanderGame
         public float MinShotDistance;
         /// <summary>Lights up only after Zander hangs on the rim for HangSeconds.</summary>
         public bool LightByHang;
+        /// <summary>Steal shrine: only this sparring bot's ball counts in this hoop.</summary>
+        public SparringBot RequiredOwner;
         public float HangSeconds = 3f;
         float _hang;
 
@@ -181,6 +183,12 @@ namespace ZanderGame
             if (RequiresRebound && !ball.ViaRebound)
             {
                 Hud.Toast("This hoop needs a bank shot off a Rebound Board!", HoopColor);
+                GameAudio.PlayAt("buzz", RimCenter, 0.4f);
+                return;
+            }
+            if (RequiredOwner != null && ball != RequiredOwner.MyBall)
+            {
+                Hud.Toast("Wrong ball! Only " + RequiredOwner.name.ToUpperInvariant() + "'s ball counts here.", HoopColor, 1.6f);
                 GameAudio.PlayAt("buzz", RimCenter, 0.4f);
                 return;
             }

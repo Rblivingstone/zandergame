@@ -814,6 +814,9 @@ namespace ZanderGame
         public float MinX, MaxX, MinZ, MaxZ;
 
         Basketball _held, _myBall;
+        Color _color = Color.white;
+        public Basketball MyBall => _myBall;
+        public float FleeRadius = 6f;
         float _ang, _sadUntil, _nextLunge, _dribbleT, _t;
         bool _lunging;
         Transform _body, _armL, _armR;
@@ -831,6 +834,7 @@ namespace ZanderGame
             var bot = go.AddComponent<SparringBot>();
             bot.Center = parent.TransformPoint(center);
             bot.Radius = radius;
+            bot._color = color;
             bot.BuildVisual(color, name.ToUpperInvariant());
             var col = go.AddComponent<CapsuleCollider>();
             col.radius = 0.4f;
@@ -874,6 +878,8 @@ namespace ZanderGame
         Vector3 PlayerPos => PlayerController.Instance != null ? PlayerController.Instance.transform.position : transform.position;
         bool PlayerHasBall => PlayerController.Instance != null && PlayerController.Instance.Balls != null &&
                               PlayerController.Instance.Balls.HasBall;
+        /// <summary>Zander is carrying THIS bot's ball: it wants it back.</summary>
+        bool PlayerHasMyBall => PlayerHasBall && _myBall != null && PlayerController.Instance.Balls.Ball == _myBall;
 
         public override Basketball LoseBall()
         {
@@ -907,6 +913,7 @@ namespace ZanderGame
             if (_myBall == null)
             {
                 _myBall = Basketball.Create(transform.position + Vector3.up);
+                _myBall.SetBand(_color);
                 _held = _myBall;
                 _myBall.Hold(this);
             }
@@ -916,7 +923,7 @@ namespace ZanderGame
             else if (_held != null)
             {
                 float pd = Vector3.Distance(new Vector3(PlayerPos.x, 0, PlayerPos.z), new Vector3(transform.position.x, 0, transform.position.z));
-                if (FleeSpeed > 0f && pd < 6f && !Done)
+                if (FleeSpeed > 0f && pd < FleeRadius)
                 {
                     var away = transform.position - PlayerPos;
                     away.y = 0;
@@ -931,7 +938,7 @@ namespace ZanderGame
                 }
             }
             else if (Time.time < _sadUntil || Done) { _face = PlayerPos - transform.position; }
-            else if (ChaseSpeed > 0f && PlayerHasBall)
+            else if (ChaseSpeed > 0f && PlayerHasMyBall)
             {
                 MoveToward(PlayerPos, ChaseSpeed);
                 if (Time.time > _nextLunge && Vector3.Distance(PlayerPos, transform.position) < 2.2f)
@@ -972,7 +979,7 @@ namespace ZanderGame
             _armR.localRotation = Quaternion.Euler(-80f, 0, 0);
             yield return new WaitForSeconds(0.4f);
             var player = PlayerController.Instance;
-            if (PlayerHasBall && Vector3.Distance(PlayerPos, transform.position) < 2.5f && UnityEngine.Random.value < LungeChance)
+            if (PlayerHasMyBall && Vector3.Distance(PlayerPos, transform.position) < 2.5f && UnityEngine.Random.value < LungeChance)
             {
                 var b = player.Balls.Ball;
                 player.Balls.ForgetBall();

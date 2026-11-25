@@ -611,26 +611,32 @@ namespace ZanderGame
             var s = Shrine("Steal", "Pickpocket", "STEAL + DODGE", 22, 32, "#E0245E", true);
             var a = s.A;
             float z = s.Z0;
-            s.Room.Objective = "Get next to a dribbling bot and press {USE} to STEAL. Score with each bot's ball!";
+            s.Room.Objective = "Catch each bot, press {USE} to STEAL its ball, and score it in the hoop of the same colour!";
             s.Room.Hints = new[]
             {
                 "Walk right up to a bot while it dribbles and press {USE} to steal the ball.",
-                "Score the stolen ball in the hoop of the same colour.",
+                "Each ball has a coloured band - it only counts in the hoop of the SAME colour.",
                 "The SPEEDY bot runs away - DASH ({SPRINT}) to catch it.",
                 "After you steal from SPEEDY, it chases you and lunges - DASH away when it winds up!"
             };
             var hoopA = Hoop.Create("Bot Hoop A", a, new Vector3(-6.5f, 0, s.Z1 - 1.6f), 180, Orange, HoopMode.Latch, "SLOWPOKE");
             var hoopB = Hoop.Create("Bot Hoop B", a, new Vector3(6.5f, 0, s.Z1 - 1.6f), 180, Blue, HoopMode.Latch, "SPEEDY");
+            // both bots keep away from Zander and chase him to steal their ball back
             var botA = SparringBot.Create("Slowpoke", a, new Vector3(-5f, 0, z + 11f), 3f, Orange);
             botA.PatrolSpeed = 1.8f;
-            botA.Chance = 0.9f;
+            botA.FleeSpeed = 4.0f;      // slower than walking: catchable without dashing
+            botA.FleeRadius = 4.5f;
+            botA.ChaseSpeed = 3.6f;
+            botA.LungeChance = 0.3f;
+            botA.Chance = 0.85f;
             botA.Target = hoopA;
             var botB = SparringBot.Create("Speedy", a, new Vector3(5f, 0, z + 15f), 4f, Blue);
             botB.PatrolSpeed = 3.5f;
             botB.FleeSpeed = 6.2f;      // faster than walking (5.2), slower than dashing (9.5)
-            botB.ChaseSpeed = 4.6f;
-            botB.LungeChance = 0.4f;
-            botB.Chance = 0.7f;
+            botB.FleeRadius = 7f;
+            botB.ChaseSpeed = 5.0f;     // keeps up with walking: dash to get away
+            botB.LungeChance = 0.45f;
+            botB.Chance = 0.65f;
             botB.Target = hoopB;
             foreach (var b in new[] { botA, botB })
             {
@@ -639,6 +645,8 @@ namespace ZanderGame
                 b.MinZ = z + 2f;
                 b.MaxZ = s.Z1 - 4f;
             }
+            hoopA.RequiredOwner = botA;   // each hoop only takes its own bot's ball
+            hoopB.RequiredOwner = botB;
             s.Room.Hoops.Add(hoopA);
             s.Room.Hoops.Add(hoopB);
             ExitGate(s, new List<Signal> { hoopA, hoopB });

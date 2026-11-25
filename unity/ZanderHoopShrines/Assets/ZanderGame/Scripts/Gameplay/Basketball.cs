@@ -104,6 +104,17 @@ namespace ZanderGame
 
         void OnDestroy() => All.Remove(this);
 
+        /// <summary>A glowing coloured band so you can tell whose ball this is.</summary>
+        public void SetBand(Color c)
+        {
+            var old = transform.Find("Band");
+            if (old != null) Destroy(old.gameObject);
+            var m = Mat.Glow(c, c, 1.8f);
+            var band = Build.Prim(PrimitiveType.Cylinder, "Band", transform, Vector3.zero,
+                new Vector3(Radius * 2.08f, 0.022f, Radius * 2.08f), m, false);
+            band.layer = Build.IgnoreRaycastLayer;
+        }
+
         public void Dock(Vector3 position)
         {
             IsDocked = true;
