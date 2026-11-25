@@ -1,0 +1,1 @@
+ZG_prop_pressureplate_1_Painted=prop_pressureplate_1

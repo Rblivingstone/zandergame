@@ -1,0 +1,1 @@
+ZG_prop_scoreboard_0_Painted=prop_scoreboard_0

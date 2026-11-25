@@ -1,0 +1,2 @@
+ZG_BossBody=kingswat_body
+ZG_BossFace=kingswat_face

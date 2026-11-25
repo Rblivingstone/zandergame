@@ -6,48 +6,97 @@ Clear three puzzle shrines, each harder than the last, using basketball
 skills. Then beat **KING SWAT**, a robot basketball king, in a shooting
 contest on the Championship Court.
 
-## Quick start
+## Running the game on your computer (Windows)
 
-1. Install **Unity 2022.3 LTS** or **Unity 6** (Built-in Render Pipeline; no extra packages needed).
-2. In Unity Hub choose **Add → Add project from disk** and pick `unity/ZanderHoopShrines`.
-3. Open the project. A setup step runs automatically. Then open
-   `Assets/Scenes/Main.unity` (or use the menu **Zander → Open Main Scene**) and press **Play**.
+1. **Get the files.** Download the code from GitHub: **Code → Download ZIP** on the branch
+   with the game, or `git clone` it. Then unzip it somewhere easy, like `Documents\zandergame`.
+2. **Install Unity Hub** from <https://unity.com/download> and sign in. The free *Personal* licence is fine.
+3. **Install the Unity editor.** In Unity Hub, go to **Installs → Install Editor** and pick **2022.3 LTS**
+   (the project was set up with 2022.3.50f1; any 2022.3 version works). The default
+   modules are enough on Windows.
+4. **Add the project.** In Unity Hub, go to **Projects → Add → Add project from disk** and choose the
+   `unity\ZanderHoopShrines` folder inside the download. If Hub says the editor version
+   differs, choose the 2022.3 version you installed.
+5. **Open it.** The first open takes a few minutes while Unity imports the models and textures.
+6. **Play.** Use the menu **Zander → Open Main Scene**, plug in the controller, and press the
+   **▶ Play** button at the top of the editor. Click the game view once if the mouse isn't captured.
+7. **Make a stand-alone game** (no Unity needed to play it). Use **Zander → Build for Windows (one click)**,
+   or close Unity and double-click `build_windows.bat`. The game ends up in
+   `unity\ZanderHoopShrines\Builds\Windows\ZanderHoopShrines.exe` (plus a zip to copy to another PC).
 
-The whole game (courts, puzzles, characters, boss, UI and sounds) builds itself
-at runtime, so **any scene works**: just press Play.
+**If something looks off**
+* *Pink objects:* use **Zander → Setup Project**, then press Play again.
+* *Unity asks about the Input System / restart:* click **Yes** and let it restart. The game reads the controller
+  through Unity's classic Input Manager (axes in `ProjectSettings/InputManager.asset`).
+* *Controller does nothing:* plug it in **before** pressing Play or starting the .exe.
 
-> If Unity asks about the *Input System*, choose the **old Input Manager**
-> (or **Both**): *Edit → Project Settings → Player → Active Input Handling*.
+The whole game (courts, puzzles, characters, boss, UI and sounds) builds itself at runtime,
+so any scene works: just press Play.
 
 ## Controls
 
-| Action | Keyboard / mouse | Gamepad |
+Made for an **Xbox-layout controller on Windows**, such as the GameSir Kaleid
+wired controller: plug it in and play. Keyboard and mouse work too. On-screen
+prompts switch automatically to whichever one you used last, and the
+controller rumbles on dunks, stomps and shrine clears.
+
+| Action | Controller | Keyboard / mouse |
 |---|---|---|
-| Move | WASD / arrows | Left stick |
-| Look | Mouse | |
-| Jump | Space | A |
-| Sprint | Left Shift | L3 |
-| **Shoot** | Hold left mouse (or F), release in the **green** zone | X |
-| **Dunk** | Press Shoot in mid-air next to a hoop | X |
-| Drop / place ball on a plate | Q / right mouse | B |
-| Use (turn boards, take a ball off a plate) | E | Y |
-| Hint | H | Back |
-| Super Shots (every shot is perfect) | Tab | |
-| Restart room | R | |
-| Pause | Esc | Start |
+| Move | Left stick (or D-pad) | WASD / arrows |
+| Look | Right stick | Mouse |
+| Camera behind Zander | RB (or R3) | – |
+| Jump | A | Space |
+| **Dash** (stamina wheel) | Hold LT (or L3) | Left Shift |
+| **Shoot** | Hold **RT**, release in the **green** zone | Hold left mouse (or F) |
+| **Dunk** | **X** near a hoop with the ball: Zander leaps to the rim. **Hold X** to hang on the rim | **C** (hold to hang) |
+| Drop / place ball on a plate | B | Q / right mouse |
+| Use (turn boards, take a ball off a plate, steal from King Swat) | Y | E |
+| Hint | LB | H |
+| Super Shots (every shot is perfect) | View (two squares) | Tab |
+| Pause menu (restart room, quit) | Menu (three lines) | Esc |
+| Restart room | Pause menu | P |
+
+While Zander runs, the camera slowly swings in behind him unless you're using the right stick.
+
+**Dash & stamina:** dashing drains the green stamina wheel next to Zander (about 3.5 s of
+dashing). It starts refilling the moment you let go of Dash. If it runs out completely
+Zander is winded: the wheel turns red, he can't dash and moves at half speed until it
+has slowly refilled all the way.
+
+## One-click Windows build
+
+**From the Unity editor:** menu **Zander → Build for Windows (one click)**.
+**Without opening Unity:** close the project in the Unity editor, then double-click **`build_windows.bat`** in the repo root.
+The script finds Unity through Unity Hub.
+
+Either way you get `unity/ZanderHoopShrines/Builds/Windows/ZanderHoopShrines.exe`
+plus a zip of the whole folder (`Builds/ZanderHoopShrines-Windows.zip`). Copy the
+folder or the zip to any Windows 10/11 PC, plug in the controller and
+double-click the `.exe`. **Zander → Build and Run on this PC** builds the game and launches it straight away.
+
+> The Windows build needs **Windows Build Support** for your Unity version.
+> On a Windows PC it comes with the editor; on a Mac, add it in Unity Hub → Installs → Add modules.
 
 ## The game
 
-| Area | Difficulty | Puzzle |
-|---|---|---|
-| Lobby | – | Practice hoop and controls |
-| **Shrine 1 – Warm-Up** | Easy | Stand on the blue plate to free the ball, light the hoop, then rest a ball on the orange plate. |
-| **Shrine 2 – Bounce & Dunk** | Medium | Ride the bounce pad and **dunk** the high "dunk only" hoop to power a lift. Then light **both** timed hoops within 12 seconds. |
-| **Shrine 3 – Chain Reaction** | Hard | Hold a ball on a plate to raise a bridge over a pit. Then score GREEN → RED → BLUE in order, using rotating **Rebound Boards** for bank shots. |
-| **Championship Court** | Boss | First to 15 vs **KING SWAT**. 3-pointers count. Jump his stomp shockwaves, wait out his swats, and hit a moving hoop in the final round. |
+The seven shrines are a training course: each one teaches **one move** you need against King Swat,
+in an order where every room builds on the last. Then comes the boss.
+
+| # | Shrine | Teaches | Puzzle |
+|---|---|---|---|
+| – | Lobby | – | Practice hoop and controls |
+| 1 | **Hop To It** | Jump | Climb stone steps, jump a gap and clear two hurdles to stand on 3 blue plates. |
+| 2 | **Beat the Gate** | Dash + stamina | A plate opens a far gate for ~3 s: too slow walking, just right dashing. The second plate makes you stand still for 1.5 s, which refills your stamina for the final dash. |
+| 3 | **Hand-Off** | Drop / pick up | A ball on a plate holds up a bridge over a pit; ferry more balls across and drop them on two plates. |
+| 4 | **Sharpshooter** | Shoot | Light a CLOSE hoop, a LONG hoop (only counts from behind its glowing line) and a MOVING hoop. |
+| 5 | **Rim Rocker** | Dunk | Dunk three DUNK ONLY hoops: on the floor, on a platform (jump up first), and a high one off a bounce pad. |
+| 6 | **Hang Time** | Hang on the rim | Dunk and keep holding: the hoops light after hanging 2, 4 and 6 seconds. |
+| 7 | **Pickpocket** | Steal + dodge | Steal from a slow practice bot, then catch SPEEDY (dash!), dodge its steal-back lunges, and score both balls. |
+| ★ | **Championship Court** | Everything | One ball, first to 15 vs **King Swat**: tight defence, steals, swats, stomps, and a moving hoop in the final round. |
 
 Basketball mechanics: auto pick-up, dribbling, a timing shot meter with
-kid-friendly aim assist, free throws, dunks, placing balls on plates,
+kid-friendly aim assist, free throws, one-button auto-leap dunks (90% go in,
+10% clang off the rim) with a hold-to-hang rim animation, placing balls on plates,
 bounce pads, and bank shots off rotating Rebound Boards.
 
 ## Repository layout
@@ -58,7 +107,10 @@ blender/                      Python scripts that generate every 3D model
   zg_anime.py                 smooth anime modelling helpers (skin bodies, heads, hair, decals, weights)
   zander_character.py         Zander, rigged, with 9 animations
   boss_character.py           King Swat, rigged, with 8 animations
-  props.py                    ball, hoop, plates, gate, dispenser, bounce pad, rebound board, bleachers...
+  props.py                    ball, hoop, plates, gate, dispenser, bounce pad, rebound board, lift, bridge...
+  zg_paint.py / zg_bake.py    hand-painted textures (vector art + 3D painting) for characters
+  zg_proppaint.py             hand-painted textures for the props
+  courts.py                   painted court floors, shrine stone walls and flagstones (Resources/Textures)
   render_preview.py           renders preview PNGs of any generated .blend
 unity/ZanderHoopShrines/      the Unity project
   Assets/ZanderGame/Scripts   game code (Core, Player, Gameplay, Level, Boss, UI)
@@ -75,6 +127,7 @@ You need Blender 3.6 or newer, or the `bpy` Python module (`pip install bpy`, Py
 blender -b -P blender/zander_character.py
 blender -b -P blender/boss_character.py
 blender -b -P blender/props.py
+python blender/courts.py        # courts + walls (needs skia-python)
 ```
 
 or, with the pip module:
